@@ -30,18 +30,23 @@ export const RecordDialog: React.FC<RecordDialogProps> = ({
   title,
   subtitle,
   fields,
-  initialValues = {},
+  initialValues,
   onSubmit,
   submitLabel = 'Save Record'
 }) => {
-  const [formData, setFormData] = useState<Record<string, any>>(initialValues);
+  const [formData, setFormData] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    setFormData(initialValues || {});
-    setErrors({});
-  }, [initialValues, isOpen]);
+    if (isOpen) {
+      setFormData(initialValues ? { ...initialValues } : {});
+      setErrors({});
+    } else {
+      setFormData({});
+      setErrors({});
+    }
+  }, [isOpen, JSON.stringify(initialValues)]);
 
   const handleChange = (name: string, value: any) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -115,12 +120,13 @@ export const RecordDialog: React.FC<RecordDialogProps> = ({
                     style={{
                       width: '100%',
                       background: 'var(--bg-surface)',
+                      color: 'var(--text-primary)',
                       borderColor: errors[field.name] ? 'var(--danger)' : undefined
                     }}
                   >
-                    <option value="">Select {field.label}...</option>
+                    <option value="" style={{ background: 'var(--bg-surface)', color: 'var(--text-primary)' }}>Select {field.label}...</option>
                     {field.options?.map((opt) => (
-                      <option key={String(opt.value)} value={opt.value}>
+                      <option key={String(opt.value)} value={opt.value} style={{ background: 'var(--bg-surface)', color: 'var(--text-primary)' }}>
                         {opt.label}
                       </option>
                     ))}
@@ -147,6 +153,8 @@ export const RecordDialog: React.FC<RecordDialogProps> = ({
                     style={{
                       width: '100%',
                       resize: 'vertical',
+                      background: 'var(--bg-surface)',
+                      color: 'var(--text-primary)',
                       borderColor: errors[field.name] ? 'var(--danger)' : undefined
                     }}
                   />

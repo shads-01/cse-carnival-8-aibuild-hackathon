@@ -60,6 +60,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
           className={`glass-input ${className}`}
           style={{
             width: '100%',
+            background: 'var(--bg-surface)',
+            color: 'var(--text-primary)',
             paddingLeft: leftIcon ? '38px' : '12px',
             paddingRight: rightIcon ? '38px' : '12px',
             borderColor: error ? 'var(--danger)' : undefined,
