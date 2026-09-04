@@ -10,22 +10,41 @@ the time-boxed build order live in [`PLAN.md`](./PLAN.md); the graded spec is
 
 ## Status as of this writing — READ THIS FIRST
 
-**Nothing is scaffolded yet.** There is no `backend/` or `frontend/` directory in this repo.
+**The directory layout changed today (2026-09-04) — read this before trusting an older
+mental model of this repo.** The original plan called for `backend/` + `frontend/`. What
+actually landed is an **npm-workspaces monorepo**: `client/` + `server/` + `shared/`, rooted
+at a workspace `package.json`. This document now describes *that* layout as the target —
+see [Open decisions / risks](#open-decisions--risks) for why the switch happened and what it
+cost.
+
 What exists today:
 
 ```
-data/                    5 seed JSON files (schedules, rooms, events, announcements, assignments)
+client/     React 18 + Vite + TypeScript workspace — scaffolded with generic auth/user
+            boilerplate (login, JWT, Zustand authStore) that predates the CampusOS domain.
+            The five real sections (schedules/rooms/events/announcements/assignments) are
+            not built yet — see Build phases.
+server/     Express + TypeScript workspace — same story: generic auth/user
+            controllers/services/routes are scaffolded; server/src/db/schema.sql is the one
+            piece that's already the real CampusOS schema (7 tables, moved here from a
+            since-removed backend/ directory today). services/*.ts for the 5 domains and
+            agent/ do not exist yet.
+shared/     Cross-workspace TypeScript types/constants (@shared/types) — currently only
+            user/auth/HTTP-status types; will need Schedule/Room/Event/Announcement/
+            Assignment types added as those domains get built.
+data/       5 seed JSON files (schedules, rooms, events, announcements, assignments)
 schema/schema.md         field-level schema reference for the 5 systems
 sample_queries/          the exact queries judges will run against the agent
 AGENTS.md, CLAUDE.md,    planning + convention docs (this file included)
 PLAN.md, tasks.md
 ```
 
-Everything else in this document — `backend/src/`, `frontend/src/`, the REST routes, the
-service layer, the agent tools — is the **target architecture**, not yet-written code. If
-you're an agent picking this up cold: your first job is Phase 0 (scaffold), not editing
-files that don't exist. See [Build phases](#build-phases--current-status) for exactly what's
-done and what's next, and [`tasks.md`](./tasks.md) for who owns which track.
+Everything else in this document describing `client/src/`, `server/src/services/*.ts`,
+`server/src/agent/*.ts` etc. is the **target architecture** for the CampusOS domain — most
+of it is not yet written. If you're an agent picking this up cold: the workspace scaffold
+and the DB schema exist; the five services, the REST routes for them, and the agent do not.
+See [Build phases](#build-phases--current-status) for exactly what's done and what's next,
+and [`tasks.md`](./tasks.md) for who owns which track.
 
 ---
 
@@ -49,9 +68,9 @@ Three people, three tracks, one 15-minute shared contract up front. Full detail 
 
 | Track | Owner | Scope |
 |---|---|---|
-| Backend & Data | Arko | Supabase schema, seed script, `services/*.ts`, REST `routes/*.ts` |
-| Dashboard UI | Shads | React CRUD UI for all 5 systems, builds against mocked data until Arko's API is live |
-| AI Agent | Hrittika | Tool calling, Gemini integration, chat UI, builds against stubbed tool responses until Arko's services are live |
+| Backend & Data | Arko | Supabase schema (done — `server/src/db/schema.sql`), seed script, `server/src/services/*.ts`, `server/src/routes/v1/*.ts` |
+| Dashboard UI | Shads | React CRUD UI for all 5 systems in `client/`, builds against mocked data until Arko's API is live |
+| AI Agent | Hrittika | Tool calling, Gemini integration, chat UI in `server/src/agent/` + `client/`, builds against stubbed tool responses until Arko's services are live |
 
 Shads and Hrittika don't wait on Arko — they build against the agreed contract (schema,
 endpoint shapes, tool signatures) with mocks, then swap to the real API/services as the one
@@ -63,11 +82,12 @@ integration point.
 
 | Layer | Choice | Notes |
 |---|---|---|
-| Backend | Express + TypeScript | One process, one port; `routes/*.ts` is the Express controller layer — thin, no business logic. |
-| Frontend | React (Vite) + TypeScript + Tailwind + shadcn/ui | shadcn buys accessible, polished dialogs/tables/forms without hand-rolled CSS. |
-| Data fetching / cache | TanStack Query (`@tanstack/react-query`), wrapping `lib/api.ts` | Gives the dashboard `invalidateQueries` — how it re-renders with fresh data after the agent mutates something, with no manual reload. See [Request lifecycle](#request-lifecycle--a-full-trace) step 9. |
-| Database | Supabase (Postgres) | Accessed **only** from the Express backend via the **Supabase service-role key**. Frontend never talks to Supabase directly. |
-| LLM | **Google Gemini** (`gemini-2.5-flash` or `gemini-2.5-pro`), native function calling via the **Google GenAI SDK** (`@google/genai`, `tools`/`functionDeclarations`) | Isolated behind `agent/llmClient.ts` so swapping providers later is a ~15-line change, not a rewrite. |
+| Backend | Express + TypeScript, in the `server/` workspace | Layered: `routes/v1/*.ts` (thin Express routers + Zod validation) → `*.controller.ts` (parse req, call service, format response) → `services/*.ts` (the only layer touching Supabase — see [The one architecture rule](#the-one-architecture-rule-that-matters)). |
+| Frontend | React 18 (Vite) + TypeScript, in the `client/` workspace | Zustand for state, Axios (`client/src/services/api.ts`) for HTTP, hand-rolled CSS design tokens (`index.css`) — not Tailwind/shadcn as originally planned; superseded by what's already scaffolded, see [Open decisions](#open-decisions--risks). |
+| Shared types | `shared/` workspace (`@shared/types`) | Cross-stack TypeScript types/constants shared by `client` and `server` via npm workspaces — no duplicated DTOs between the two. |
+| State freshness | Zustand domain stores, wrapping `client/src/services/*.ts` | Each domain (`rooms`, `events`, …) gets a store with a `fetch()` action; `ChatPanel.tsx` calls the matching store's `fetch()` after a mutating agent response, so the dashboard updates with no manual reload. See [Request lifecycle](#request-lifecycle--a-full-trace) step 9. |
+| Database | Supabase (Postgres) | Accessed **only** from the Express backend (`server/src/config/supabase.ts`) via the **Supabase service-role key**. Frontend never talks to Supabase with that key — its own `supabaseClient.ts` only ever holds the anon key. |
+| LLM | **Google Gemini** (`gemini-2.5-flash` or `gemini-2.5-pro`), native function calling via the **Google GenAI SDK** (`@google/genai`, `tools`/`functionDeclarations`) | Isolated behind `server/src/agent/llmClient.ts` so swapping providers later is a ~15-line change, not a rewrite. |
 
 > **Decision note:** confirmed 2026-09-04 — **the LLM provider is Gemini**, matching
 > `PLAN.md`, `tasks.md`, and the Hrittika track. If you're an agent and see any doc (including
@@ -80,47 +100,54 @@ integration point.
 ## The one architecture rule that matters
 
 **Every data access — dashboard CRUD and agent tool calls alike — goes through the same
-`services/*.ts` layer.** Never let `agent/tools.ts` query Supabase directly, and never let a
-route handler skip the service layer "just this once."
+`server/src/services/*.ts` layer.** Never let `server/src/agent/tools.ts` query Supabase
+directly, and never let a controller skip the service layer "just this once."
 
 ```
-┌─────────────────┐                ┌───────────────┐
-│ React Dashboard │                │ Chat / Agent  │
-│ (full CRUD UI)  │                │ ChatPanel.tsx │
-└─────────────────┘                └───────────────┘
-         │ fetch (lib/api.ts)              │ POST /api/agent/chat
-         ▼                                 ▼
-┌──────────────────┐                ┌───────────────────┐
-│   routes/*.ts    │                │  agent/tools.ts   │
-│ thin controllers │                │  9 tool handlers  │
-│ validate + call  │                │ no business logic │
-└──────────────────┘                └───────────────────┘
-          │                                   │
-          └─────────────────┬─────────────────┘
-       both call the SAME services/*.ts functions
-                            ▼
-    ┌──────────────────────────────────────────────┐
-    │                services/*.ts                 │
-    │ scheduleService · roomService · eventService │
-    │   announcementService · assignmentService    │
-    │          — single source of truth —          │
-    │      conflict checks, capacity checks:       │
-    │     the ONLY code that reaches Postgres      │
-    └──────────────────────────────────────────────┘
-                            │ supabase-js (service-role key)
-                            ▼
-            ┌──────────────────────────────┐
-            │     Supabase (Postgres)      │
-            │ schedules · rooms · bookings │
-            │ events · event_registrations │
-            │ announcements · assignments  │
-            └──────────────────────────────┘
+┌────────────────────────┐              ┌───────────────┐
+│    React Dashboard     │              │ Chat / Agent  │
+│ client/ (full CRUD UI) │              │ ChatPanel.tsx │
+└────────────────────────┘              └───────────────┘
+             │                                  │
+             ▼ Axios (client/src/services/*.ts) ▼ POST /api/v1/agent/chat
+┌─────────────────────────┐              ┌───────────────────┐
+│     routes/v1/*.ts      │              │  agent/tools.ts   │
+│  thin Express routers   │              │  9 tool handlers  │
+│ Zod validate.middleware │              │ no business logic │
+└─────────────────────────┘              └───────────────────┘
+             │                                     │
+┌──────────────────────────┐                       │
+│     *.controller.ts      │                       │
+│ parse req, call service, │                       │
+│  format via apiResponse  │                       │
+└──────────────────────────┘                       │
+              │                                    │
+              └───────────────────┬────────────────┘
+         both terminate in the SAME services/*.ts functions
+                                  ▼
+          ┌──────────────────────────────────────────────┐
+          │                services/*.ts                 │
+          │ scheduleService · roomService · eventService │
+          │   announcementService · assignmentService    │
+          │          — single source of truth —          │
+          │     the ONLY code that reaches Postgres      │
+          └──────────────────────────────────────────────┘
+                                  │ supabase-js (service-role key)
+                                  ▼
+                  ┌──────────────────────────────┐
+                  │     Supabase (Postgres)      │
+                  │ schedules · rooms · bookings │
+                  │ events · event_registrations │
+                  │ announcements · assignments  │
+                  └──────────────────────────────┘
 ```
 
-Both entry points — the dashboard's `routes/*.ts` (the Express controller layer) and the
-agent's `agent/tools.ts` — terminate in the *same* `services/*.ts` functions before anything
-reaches Postgres. Neither is allowed a shortcut around that middle layer; that's the whole
-rule, drawn as a diagram instead of stated as a sentence.
+All of this lives under `server/src/`. Both entry points — the dashboard's
+`routes/v1/*.ts` → `*.controller.ts` chain and the agent's `agent/tools.ts` — terminate in
+the *same* `services/*.ts` functions before anything reaches Postgres. The controller layer
+is new versus the original two-hop plan (it didn't exist when `routes/*.ts` called services
+directly); it's still not allowed a shortcut around `services/*.ts`, and neither is the
+agent. That's the whole rule, drawn as a diagram instead of stated as a sentence.
 
 Why this is non-negotiable rather than a style preference: "always using the latest data" is
 worth 10 of the 40 agent marks, graded directly by editing a record in the dashboard and then
@@ -140,65 +167,73 @@ with two seed-data arrays (`rooms[].bookings`, `events[].registrations`) split i
 tables — 7 tables total.
 
 ```
-┌─ schedules ───────────┐      ┌─ rooms ───────────────┐      ┌─ events ───────────────────────┐
-│ id            uuid PK │      │ id            uuid PK │      │ id            uuid PK          │
-│ course        text    │      │ room_number   text    │      │ name          text             │
-│ title         text    │      │ type          text    │      │ description   text             │
-│ day           text    │      │ capacity      int     │      │ date          date             │
-│ start_time    time    │      │ equipment     text[]  │      │ end_date      date  (nullable) │
-│ end_time      time    │      │ floor         int     │      │ start_time    time             │
-│ room          text    │      │ status        text    │      │ end_time      time             │
-│ instructor    text    │      └───────────────────────┘      │ venue         text             │
-│ section       text    │                                     │ organizer     text             │
-└───────────────────────┘                                     │ capacity      int              │
-                                                              │ status        text             │
-                                                              └────────────────────────────────┘
-                                           │                                   │
-                                           ▼ 1..*                              ▼ 1..*
-                         ┌─ bookings ────────────────────────┐    ┌─ event_registrations ──────────────┐
-                         │ id            uuid PK             │    │ id            uuid PK              │
-                         │ room_id       uuid FK -> rooms.id │    │ event_id      uuid FK -> events.id │
-                         │ booked_by     text                │    │ student_id    text                 │
-                         │ date          date                │    │ name          text                 │
-                         │ start_time    time                │    └────────────────────────────────────┘
-                         │ end_time      time                │
-                         │ purpose       text                │
-                         └───────────────────────────────────┘
+┌─ schedules ───────────────────────┐      ┌─ rooms ─────────────────────────────────┐      ┌─ events ───────────────────────────────┐
+│ id            text PK             │      │ id            text PK                   │      │ id            text PK                  │
+│ course        text                │      │ room_number   text  unique              │      │ name          text                     │
+│ title         text                │      │ type          text                      │      │ description   text  default ''         │
+│ day           text                │      │ capacity      int                       │      │ date          date                     │
+│ start_time    time                │      │ equipment     text[]                    │      │ end_date      date                     │
+│ end_time      time                │      │ floor         int                       │      │ start_time    time                     │
+│ room          text                │      │ status        text  default 'available' │      │ end_time      time                     │
+│ instructor    text  default 'TBA' │      └─────────────────────────────────────────┘      │ venue         text                     │
+│ section       text                │                                                       │ organizer     text                     │
+└───────────────────────────────────┘                                                       │ capacity      int                      │
+                                                                                            │ status        text  default 'upcoming' │
+                                                                                            └────────────────────────────────────────┘
+                                                                │                                                │
+                                                                ▼ 1..*                                           ▼ 1..*
+                                          ┌─ bookings ───────────────────────────────┐     ┌─ event_registrations ────────────────────┐
+                                          │ id            text PK                    │     │ id            text PK                    │
+                                          │ room_id       text FK -> rooms.id        │     │ event_id      text FK -> events.id       │
+                                          │ booked_by     text                       │     │ student_id    text                       │
+                                          │ date          date                       │     │ name          text                       │
+                                          │ start_time    time                       │     │ registered_at timestamptz  default now() │
+                                          │ end_time      time                       │     │ unique(event_id, student_id)             │
+                                          │ purpose       text                       │     └──────────────────────────────────────────┘
+                                          │ created_at    timestamptz  default now() │
+                                          └──────────────────────────────────────────┘
 
 (FK)  bookings.room_id -> rooms.id               one room  : many bookings
 (FK)  event_registrations.event_id -> events.id  one event : many registrations
 
-(virtual) events.registered = COUNT(*) FROM event_registrations WHERE event_id = events.id
-          not a stored column — nothing to increment/decrement, nothing to drift
+(virtual) events.registered — not a column; served from the events_with_registration_count
+          view: SELECT e.*, COUNT(er.id) AS registered FROM events e LEFT JOIN
+          event_registrations er ON er.event_id = e.id GROUP BY e.id
 ```
 
 ```
-┌─ announcements ────────────────┐        ┌─ assignments ────────────────────┐
-│ id            uuid PK          │        │ id                   uuid PK     │
-│ title         text             │        │ course               text        │
-│ body          text             │        │ course_title         text        │
-│ date          date             │        │ title                text        │
-│ priority      text             │        │ description          text        │
-│ posted_by     text             │        │ assigned_date        date        │
-│ expires       date  (nullable) │        │ deadline             timestamptz │
-└────────────────────────────────┘        │ submission_platform  text        │
-                                          │ status               text        │
-                                          │ marks                int         │
-                                          └──────────────────────────────────┘
+┌─ announcements ───────┐        ┌─ assignments ────────────────────────────────┐
+│ id            text PK │        │ id                   text PK                 │
+│ title         text    │        │ course               text                    │
+│ body          text    │        │ course_title         text                    │
+│ date          date    │        │ title                text                    │
+│ priority      text    │        │ description          text  default ''        │
+│ posted_by     text    │        │ assigned_date        date                    │
+│ expires       date    │        │ deadline             date                    │
+└───────────────────────┘        │ submission_platform  text                    │
+                                 │ status               text  default 'pending' │
+                                 │ marks                int                     │
+                                 └──────────────────────────────────────────────┘
 
 Stand-alone — no FK relations to the other five tables.
 ```
 
-**Two fields deliberately become computed, not stored:**
-- `events.registered` — a `COUNT(*)` over `event_registrations` where `event_id` matches, not
-  a field the app has to remember to increment/decrement. A stored count can drift; a computed
-  one can't. It is a **virtual/read-model field** — it appears in API/tool responses but has
-  no column in `events`.
-- Room booking conflicts — checked at write time in `roomService.book()` via
-  `start_time < existing.end_time AND end_time > existing.start_time` over the `bookings` FK
-  relation, not by scanning a JSON array.
+All 7 tables live in `server/src/db/schema.sql` (moved there today from a since-removed
+`backend/` directory — it's the one piece of the CampusOS domain schema that's already real,
+applied to Supabase, and correct as drawn above). IDs are plain `text` slugs (`"room-001"`,
+`"asgn-001"`, …) matching the seed JSON in `data/*.json` — not generated `uuid`s.
 
-### Time & date conventions (applies to `bookings`, `schedules`, `events`)
+**One field is deliberately computed, not stored:**
+- `events.registered` — never a column on `events`. `schema.sql` defines
+  `events_with_registration_count`, a view that joins `event_registrations` and counts per
+  event; `eventService` reads through that view instead of hand-rolling the join, and there
+  is nothing to increment/decrement or let drift.
+
+Room booking conflicts are checked at write time in `roomService.book()` via
+`start_time < existing.end_time AND end_time > existing.start_time` over the `bookings` FK
+relation (`idx_bookings_room_date` makes that check cheap), not by scanning a JSON array.
+
+### Time & date conventions (applies to every domain table)
 
 One format per concept, used identically everywhere it appears — in Postgres columns, service
 function signatures, REST payloads, and agent tool parameters:
@@ -207,62 +242,119 @@ function signatures, REST payloads, and agent tool parameters:
 |---|---|---|---|
 | Calendar date | `YYYY-MM-DD` (ISO 8601 date) | `date` | `2026-09-05` |
 | Clock time | `HH:mm`, 24-hour, campus-local (single time zone — no offset needed) | `time` | `15:00` |
-| A deadline that can cross midnight and needs unambiguous ordering | full ISO 8601 timestamp | `timestamptz` | `2026-09-12T23:59:00+05:30` |
+| Internal bookkeeping timestamp (row creation only, never set by a client/agent) | ISO 8601 timestamp | `timestamptz` | `2026-09-04T14:32:00Z` |
 
-`assignments.deadline` is the **only** field that uses the full timestamp — every other
-date/time field in the schema is a plain `date` or `time` pair, because schedules, bookings,
-and events are always same-day, campus-local, and never need to be compared across days at
-sub-day precision.
+Every domain-facing date/time field — including `assignments.deadline` — is a plain `date` or
+`time`, because schedules, bookings, events, and assignment deadlines are always campus-local
+calendar dates, never compared across days at sub-day precision. The only `timestamptz`
+columns in the schema are `bookings.created_at` and `event_registrations.registered_at` —
+server-set audit timestamps, never a value a tool call or REST payload provides.
 
-Seed script (`backend/src/db/seed.ts`) reads the five files in `data/`, transforms the
-embedded `bookings`/`registrations` arrays into rows in the two join tables, and upserts on
-`id` — safe to re-run without duplicating rows.
+Seed script (`server/src/db/seed.ts`, not yet written) will read the five files in `data/`,
+transform the embedded `bookings`/`registrations` arrays into rows in the two join tables, and
+upsert on `id` — safe to re-run without duplicating rows.
 
 ---
 
 ## Target directory layout
 
+npm workspaces, root `package.json` lists `["shared", "server", "client"]`. Root commands:
+`npm install` (all three), `npm run dev` (server + client concurrently), `npm run build`
+(shared → server → client, in that order — client depends on `shared`'s build output).
+
+Bold entries below are new work for the CampusOS domain — everything else already exists in
+the repo as generic auth/user scaffolding (see [Status](#status-as-of-this-writing--read-this-first)
+and [Open decisions](#open-decisions--risks) for why that scaffolding doesn't map onto the
+five real systems and won't be extended further).
+
 ```
-backend/
+shared/
 └─ src/
-   ├─ index.ts                     express app: mounts routes, CORS, JSON body parsing, error middleware
+   ├─ types/
+   │  ├─ user.types.ts, auth.types.ts, api.types.ts     existing — ApiResponse<T> is reused as-is
+   │  └─ **campus.types.ts**                            NEW — Schedule, Room, Booking, Event,
+   │                                                     EventRegistration, Announcement, Assignment
+   ├─ constants/
+   │  ├─ httpStatus.ts, roles.ts, routes.ts             existing
+   └─ index.ts                     exports everything above for `@shared/types` imports
+
+server/
+└─ src/
+   ├─ app.ts                       existing — Express setup: Cors, Helmet, Morgan, JSON parsing,
+   │                                routes, 404 handler, error middleware. Mount the 5 new v1
+   │                                routers here alongside the existing user/auth/health ones.
+   ├─ config/
+   │  ├─ index.ts                  existing — Zod-validated env loader (add GEMINI_API_KEY here
+   │  │                            once agent/ needs it validated at startup)
+   │  └─ supabase.ts                existing — service-role Supabase client, reused as-is
    ├─ db/
-   │  ├─ client.ts                 supabase client (service role — backend only, never bundled to frontend)
-   │  ├─ schema.sql                table definitions + FKs for the 7 tables (see Data model)
-   │  └─ seed.ts                   loads data/*.json into Supabase, upserts on id (see seed script note)
+   │  ├─ schema.sql                DONE — 7 tables + events_with_registration_count view (moved
+   │  │                            here today; see Data model)
+   │  └─ **seed.ts**                NEW — loads data/*.json, splits embedded bookings/
+   │                                registrations into join-table rows, upserts on id
    ├─ services/                    the ONLY layer that talks to Supabase — see architecture rule
-   │  ├─ scheduleService.ts
-   │  ├─ roomService.ts            + findAvailable(), book(), cancelBooking() — conflict check lives here
-   │  ├─ eventService.ts           + register(), cancelRegistration() — capacity check lives here
-   │  ├─ announcementService.ts
-   │  └─ assignmentService.ts
-   ├─ routes/                      thin Express controllers over services/ — no business logic here
-   │  ├─ schedules.ts
-   │  ├─ rooms.ts
-   │  ├─ events.ts
-   │  ├─ announcements.ts
-   │  ├─ assignments.ts
-   │  └─ agent.ts                  POST /api/agent/chat
-   └─ agent/
+   │  ├─ user.service.ts, auth.service.ts               existing, untouched
+   │  └─ **scheduleService.ts, roomService.ts** (+ findAvailable/book/cancelBooking),
+   │     **eventService.ts** (+ register/cancelRegistration), **announcementService.ts,
+   │     assignmentService.ts**                          NEW
+   ├─ controllers/
+   │  ├─ user.controller.ts, auth.controller.ts, health.controller.ts   existing
+   │  └─ **schedule.controller.ts, room.controller.ts, event.controller.ts,
+   │     announcement.controller.ts, assignment.controller.ts, agent.controller.ts**   NEW
+   ├─ routes/
+   │  ├─ index.ts, v1/index.ts     existing — mount new v1 routers here
+   │  ├─ v1/user.routes.ts, v1/auth.routes.ts            existing
+   │  └─ **v1/schedule.routes.ts, v1/room.routes.ts, v1/event.routes.ts,
+   │     v1/announcement.routes.ts, v1/assignment.routes.ts, v1/agent.routes.ts**   NEW
+   ├─ middlewares/
+   │  ├─ auth.middleware.ts, validate.middleware.ts, error.middleware.ts   existing, reused as-is
+   │  │                            (`validate.middleware.ts` + Zod schemas is how the 5 new
+   │  │                            routers validate request shape — reuse, don't reinvent)
+   ├─ validators/
+   │  ├─ user.validator.ts, auth.validator.ts            existing
+   │  └─ **schedule.validator.ts, room.validator.ts, event.validator.ts,
+   │     announcement.validator.ts, assignment.validator.ts**   NEW (Zod schemas)
+   ├─ utils/
+   │  ├─ apiResponse.ts, logger.ts, asyncHandler.ts       existing, reused as-is
+   └─ **agent/**                    NEW
       ├─ tools.ts                  9 tool schemas + handlers, call services/* — never Supabase directly
       ├─ systemPrompt.ts           identity + the 4 behavior rules (see below) + injected current date/time
       ├─ llmClient.ts              Google GenAI SDK wrapper (@google/genai), swappable — see AGENTS.md
       └─ runAgent.ts               the tool-use loop: prompt → Gemini → tool call → tools.ts → Gemini → reply
 
-frontend/
+client/
 └─ src/
-   ├─ App.tsx                      router/shell, mounts Dashboard + ChatPanel, owns the TanStack QueryClient
+   ├─ App.tsx, main.tsx            existing — app shell; add the 5 sections + ChatPanel here
    ├─ pages/
-   │  └─ Dashboard.tsx             lays out the five CRUD sections
-   ├─ components/
-   │  ├─ ScheduleSection.tsx
-   │  ├─ RoomSection.tsx           + book/cancel UI
-   │  ├─ EventSection.tsx          + register/cancel UI
-   │  ├─ AnnouncementSection.tsx
-   │  ├─ AssignmentSection.tsx
-   │  └─ ChatPanel.tsx             message list + input, calls /api/agent/chat, invalidates queries on `mutated`
-   └─ lib/
-      └─ api.ts                   typed fetch wrapper — the ONLY thing components use to hit the backend
+   │  ├─ Home.tsx, Login.tsx, Dashboard.tsx              existing (Dashboard.tsx currently renders
+   │  │                            user-list content — repoint it at the 5 CampusOS sections)
+   ├─ features/
+   │  ├─ auth/, user/, dashboard/  existing, untouched
+   │  └─ **campus/**                NEW —
+   │     **ScheduleSection.tsx, RoomSection.tsx** (+ book/cancel UI), **EventSection.tsx**
+   │     (+ register/cancel UI), **AnnouncementSection.tsx, AssignmentSection.tsx, ChatPanel.tsx**
+   │     (message list + input, calls `/api/v1/agent/chat`, triggers a domain store refetch on `mutated`)
+   ├─ services/
+   │  ├─ api.ts                    existing — Axios instance, base URL + interceptors, reused as-is
+   │  ├─ authService.ts, userService.ts                  existing
+   │  └─ **campusService.ts**       NEW — typed functions calling `/api/v1/{schedules,rooms,events,
+   │                                announcements,assignments,agent}` through `api.ts`
+   ├─ store/
+   │  ├─ authStore.ts               existing (Zustand)
+   │  └─ **campusStore.ts**         NEW — Zustand store, one slice per domain resource
+   │                                (`rooms`, `events`, …) each with a `fetch()` action; this is
+   │                                what `ChatPanel.tsx` calls into for freshness (see Request
+   │                                lifecycle step 9)
+   ├─ components/common/, components/layout/             existing UI primitives — Button, Input,
+   │                                Card, Modal, Navbar, Sidebar, Footer — reuse for the 5 new
+   │                                sections rather than introducing Tailwind/shadcn
+   ├─ hooks/
+   │  ├─ useAuth.ts                 existing
+   │  └─ useFetch.ts                existing generic hook — fine for one-off reads; use
+   │                                `campusStore` instead wherever another component needs to
+   │                                see the same refetch
+   └─ routes/
+      └─ AppRoutes.tsx              existing — add routes for the 5 new sections
 ```
 
 ---
@@ -270,17 +362,20 @@ frontend/
 ## REST API surface
 
 Standard CRUD on all five systems, plus the two systems with extra actions (rooms, events).
-All routes are thin — they validate the request shape and call straight into `services/*.ts`;
-business logic (conflict checks, capacity checks) lives in the service, not here.
+Every path is under `/api/v1` — `server/src/routes/v1/index.ts` already mounts the existing
+user/auth/health routers there; the 5 new routers below join them the same way. All routes are
+thin — `routes/v1/*.ts` validates the request shape (Zod, via `validate.middleware.ts`) and
+hands off to a `*.controller.ts`, which calls straight into `services/*.ts`; business logic
+(conflict checks, capacity checks) lives in the service, not in the route or the controller.
 
 | System | Endpoints |
 |---|---|
-| Schedules | `GET/POST /api/schedules`, `PUT/DELETE /api/schedules/:id` |
-| Rooms | `GET/POST /api/rooms`, `PUT/DELETE /api/rooms/:id`, `POST /api/rooms/:id/book`, `POST /api/bookings/:id/cancel` |
-| Events | `GET/POST /api/events`, `PUT/DELETE /api/events/:id`, `POST /api/events/:id/register`, `POST /api/events/:id/registrations/:regId/cancel` |
-| Announcements | `GET/POST /api/announcements`, `PUT/DELETE /api/announcements/:id` |
-| Assignments | `GET/POST /api/assignments`, `PUT/DELETE /api/assignments/:id` |
-| Agent | `POST /api/agent/chat` — request `{ message: string, history?: ChatTurn[] }`, response `{ reply: string, mutated: string[] }`. `mutated` names the resource types (`"rooms"`, `"bookings"`, `"events"`, …) any tool call actually wrote in this turn — see [Request lifecycle](#request-lifecycle--a-full-trace) step 9 for how the frontend uses it. |
+| Schedules | `GET/POST /api/v1/schedules`, `PUT/DELETE /api/v1/schedules/:id` |
+| Rooms | `GET/POST /api/v1/rooms`, `PUT/DELETE /api/v1/rooms/:id`, `POST /api/v1/rooms/:id/book`, `POST /api/v1/bookings/:id/cancel` |
+| Events | `GET/POST /api/v1/events`, `PUT/DELETE /api/v1/events/:id`, `POST /api/v1/events/:id/register`, `POST /api/v1/events/:id/registrations/:regId/cancel` |
+| Announcements | `GET/POST /api/v1/announcements`, `PUT/DELETE /api/v1/announcements/:id` |
+| Assignments | `GET/POST /api/v1/assignments`, `PUT/DELETE /api/v1/assignments/:id` |
+| Agent | `POST /api/v1/agent/chat` — request `{ message: string, history?: ChatTurn[] }`, response `{ reply: string, mutated: string[] }`. `mutated` names the resource types (`"rooms"`, `"bookings"`, `"events"`, …) any tool call actually wrote in this turn — see [Request lifecycle](#request-lifecycle--a-full-trace) step 9 for how the frontend uses it. |
 
 ---
 
@@ -293,7 +388,7 @@ doesn't allocate there. If time remains after everything else: `create_announcem
 cheapest addition.
 
 Parameter names match the Postgres column names 1:1 (see [Data model](#data-model) and
-[Time & date conventions](#time--date-conventions-applies-to-bookings-schedules-events)) —
+[Time & date conventions](#time--date-conventions-applies-to-every-domain-table)) —
 `start`/`end` never appears as a tool parameter, only `start_time`/`end_time`, so there is
 never a translation step between what the agent sends and what `services/*.ts` expects.
 
@@ -336,19 +431,20 @@ The clearest way to see why the architecture rule holds up: trace *"Book Room 30
 to 5 PM"* from chat message to UI update.
 
 1. **`ChatPanel.tsx`** posts `{ message: "Book Room 302 tomorrow, 3 to 5 PM" }` to
-   `POST /api/agent/chat`.
-2. **`routes/agent.ts`** hands it to **`agent/runAgent.ts`**. Before the first Gemini call,
-   `runAgent.ts` reads the server clock and injects the current campus-local date into the
-   system prompt as a literal line — e.g. `Current date: 2026-09-04 (Thursday)` — via
-   `systemPrompt.ts`. This is what lets Gemini resolve "tomorrow" into an absolute date
-   server-side; it is never left for the model to guess, and it never drifts from the client's
-   clock, because the client's clock is never consulted.
+   `POST /api/v1/agent/chat`.
+2. **`routes/v1/agent.routes.ts`** → **`agent.controller.ts`** hands it to
+   **`agent/runAgent.ts`**. Before the first Gemini call, `runAgent.ts` reads the server clock
+   and injects the current campus-local date into the system prompt as a literal line — e.g.
+   `Current date: 2026-09-04 (Thursday)` — via `systemPrompt.ts`. This is what lets Gemini
+   resolve "tomorrow" into an absolute date server-side; it is never left for the model to
+   guess, and it never drifts from the client's clock, because the client's clock is never
+   consulted.
 3. `runAgent.ts` calls Gemini via **`agent/llmClient.ts`** with that system prompt + the 9 tool
    declarations. Gemini resolves "tomorrow" → `2026-09-05` and "3 to 5 PM" → `15:00`/`17:00`,
    and — forbidden by rule 1 from answering from memory — calls
    `find_available_rooms(date: "2026-09-05", start_time: "15:00", end_time: "17:00")`.
 4. **`agent/tools.ts`**'s handler calls `roomService.findAvailable()` — the exact same
-   function `routes/rooms.ts` would call if the dashboard's "available now" filter used it.
+   function `room.controller.ts` would call for the dashboard's "available now" filter.
 5. `roomService.findAvailable()` queries Supabase directly (it's inside the service layer),
    checking room 302 against the `bookings` table for overlap in that window.
 6. Result flows back to Gemini. Room 302 is free → Gemini calls
@@ -356,19 +452,19 @@ to 5 PM"* from chat message to UI update.
    booked_by, purpose)`.
 7. `roomService.book()` re-checks the overlap (never trust the earlier read as still valid —
    time has passed) and, if still clear, inserts the `bookings` row.
-8. Response flows back through `runAgent.ts` → `routes/agent.ts` → `ChatPanel.tsx` as
+8. Response flows back through `runAgent.ts` → `agent.controller.ts` → `ChatPanel.tsx` as
    `{ reply: "Booked Room 302 for you, 3–5 PM tomorrow.", mutated: ["rooms"] }` — `mutated`
    names which resource types the tool calls in this turn actually wrote.
 9. **Freshness on the dashboard side:** `ChatPanel.tsx` sees `mutated: ["rooms"]` and calls
-   `queryClient.invalidateQueries({ queryKey: ["rooms"] })` (TanStack Query) — the same cache
-   key `RoomSection.tsx` reads from. No manual reload, no polling: the next render pulls the
-   fresh row straight from the invalidated query, which refetches from the same
-   `GET /api/rooms` → `roomService` path the dashboard always uses.
+   `useCampusStore.getState().rooms.fetch()` — the Zustand action `RoomSection.tsx` reads its
+   list from and calls on its own mount. No manual reload, no polling: the store refetches from
+   the same `GET /api/v1/rooms` → `room.controller.ts` → `roomService` path the dashboard
+   always uses, and every component subscribed to that slice re-renders.
 10. **Freshness check, the actual point of the exercise:** if a judge now opens the dashboard's
     `RoomSection.tsx`, the same `roomService.book()` write is what they'd see — because it's
-    the same table, written by the same service function the route handler would have called,
-    and the query cache pointing at it was just invalidated. There is no second copy of the
-    data, no cache lag, nothing to go stale.
+    the same table, written by the same service function the controller would have called, and
+    the store slice pointing at it was just refetched. There is no second copy of the data, no
+    cache lag, nothing to go stale.
 
 If step 4 had queried Supabase directly from `agent/tools.ts` instead of through
 `roomService`, this trace would still work today — but the day someone adds a second way to
@@ -384,11 +480,11 @@ Mirrors the checklist in [`CLAUDE.md`](./CLAUDE.md) — update both when a phase
 
 | Phase | Output | Status |
 |---|---|---|
-| 0 — Setup | Supabase project, `.env` filled, Vite + Express scaffolds, `schema.sql` applied | **Not started** |
-| 1 — Data layer | `db/schema.sql`, `db/seed.ts` runs clean, `services/*.ts` for all 5 systems | Not started |
-| 2 — REST API | `routes/*.ts`, thin controllers, full CRUD on all 5 | Not started |
-| 3 — Dashboard UI | 5 sections, table + add/edit dialog + delete confirm, wired to `lib/api.ts` | Not started |
-| 4 — Agent backend | `agent/tools.ts`, `systemPrompt.ts`, `runAgent.ts`, `POST /api/agent/chat` | Not started |
+| 0 — Setup | Supabase project, `.env` filled, `client`/`server`/`shared` workspace scaffold, `schema.sql` applied | **Workspace scaffold + schema.sql done; scaffold is generic auth/user boilerplate, not yet the CampusOS domain** |
+| 1 — Data layer | `server/src/db/seed.ts`, `services/*.ts` for all 5 systems | Not started |
+| 2 — REST API | `routes/v1/*.ts` + `*.controller.ts`, full CRUD on all 5 | Not started |
+| 3 — Dashboard UI | 5 sections under `client/src/features/campus/`, table + add/edit dialog + delete confirm, wired to `campusService.ts` | Not started |
+| 4 — Agent backend | `server/src/agent/tools.ts`, `systemPrompt.ts`, `runAgent.ts`, `POST /api/v1/agent/chat` | Not started |
 | 5 — Chat UI | `ChatPanel.tsx` | Not started |
 | 6 — Test against the brief | Every query in `sample_queries/sample_queries.md` + shadow-path cases | Not started |
 | 7 — README + polish | Fill required README sections, tidy empty/loading/error states | Not started |
@@ -400,17 +496,25 @@ Full time-boxed minute budget per phase is in [`PLAN.md`](./PLAN.md#build-order-
 ## Environment variables
 
 A single `.env` at the **repo root** (see [`.env.example`](./.env.example), also at the
-root) — not `backend/.env`. The backend process loads it from there:
+root) — not `server/.env`. `server/src/config/index.ts` loads and Zod-validates it from
+there; `client/` reads its own subset at build time via Vite's `VITE_`-prefixed convention.
 
 | Var | Required | Purpose |
 |---|---|---|
 | `SUPABASE_URL` | yes | Supabase project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | yes | Backend-only Supabase service-role key — never ship to the frontend bundle or client-side code |
-| `GEMINI_API_KEY` | yes | Google AI Studio key, used by `agent/llmClient.ts` (Google GenAI SDK) |
-| `PORT` | yes | Express listen port |
+| `SUPABASE_SERVICE_ROLE_KEY` | yes | Backend-only Supabase service-role key — never ship to the client bundle |
+| `SUPABASE_ANON_KEY` | optional | Public anon key; mirrored into `VITE_SUPABASE_ANON_KEY` for the client's own `supabaseClient.ts` |
+| `GEMINI_API_KEY` | yes (once `agent/` exists) | Google AI Studio key, used by `server/src/agent/llmClient.ts` (Google GenAI SDK) |
+| `PORT` | no — defaults to `5000` | Express listen port |
+| `NODE_ENV`, `CLIENT_URL`, `JWT_SECRET` | no — all default | Pre-existing from the auth scaffold; `config/index.ts` still validates them even though the CampusOS domain doesn't use auth |
+| `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | yes, for `client/` | Vite only exposes `VITE_`-prefixed vars to the browser bundle — never put `SUPABASE_SERVICE_ROLE_KEY` or `GEMINI_API_KEY` behind this prefix |
 
 Never commit `.env` or real keys — `.env.example` is the template and should only ever
-contain placeholders.
+contain placeholders. (It briefly didn't: a prior commit merged in with literal
+`<<<<<<< HEAD` conflict markers left in `.env.example` — fixed 2026-09-04. If `cp
+.env.example .env` ever produces a file with `<<<<<<<`/`=======`/`>>>>>>>` in it again,
+that's this same class of bug — someone committed an unresolved merge, not something to
+`cp` as-is.)
 
 ---
 
@@ -432,11 +536,25 @@ Per system, applied where it matters most — booking:
 
 ## Open decisions / risks
 
+- **Directory layout — resolved 2026-09-04:** the plan was `backend/` + `frontend/`; what got
+  pushed to `main` was an npm-workspaces monorepo (`client/` + `server/` + `shared/`) with
+  generic auth/user boilerplate, built independently of Arko's `backend/src/db/schema.sql`
+  (the real CampusOS schema). Team decision: **keep `client/server/shared`** — it's already
+  real, working infrastructure (Express/Zod/Supabase wiring, error handling, a shared-types
+  package) — and build the five CampusOS services/routes/UI *into* it rather than starting a
+  second `backend/`+`frontend/` from scratch. `schema.sql` was moved from `backend/` into
+  `server/src/db/` today; `backend/` no longer exists. Consequence: `Tailwind/shadcn` and a
+  plain `lib/api.ts` fetch wrapper (the original plan, and what `TASKS_SHADS.md` still says)
+  are superseded by what's already scaffolded — hand-rolled CSS components and an Axios +
+  Zustand client. The generic auth/user/JWT code that came with the scaffold stays in the repo
+  (ripping it out is wasted effort under tonight's clock) but **won't be extended** — it isn't
+  named anywhere in `PROBLEM_STATEMENT.md` or the rubric, and none of the five graded systems
+  need a login. If you're an agent and encounter a doc that still says `backend/`/`frontend/`,
+  treat this file as the source of truth and fix the stale doc.
 - **LLM provider — resolved 2026-09-04:** Gemini via the Google GenAI SDK. See the
-  [Stack](#stack) section's decision note. If you're an agent and encounter a doc that still
-  says otherwise, treat this file as the source of truth and fix the stale doc.
+  [Stack](#stack) section's decision note.
 - **Realtime scope — resolved by PLAN.md:** "no manual refresh" is read literally as
-  same-client state update from the mutation response (TanStack Query cache invalidation keyed
+  same-client state update from the mutation response (a Zustand domain-store refetch keyed
   off the agent response's `mutated` field — see [Request lifecycle](#request-lifecycle--a-full-trace)
   step 9), not multi-tab broadcast. Supabase Realtime subscriptions are explicitly out of scope
   unless everything else lands early.
