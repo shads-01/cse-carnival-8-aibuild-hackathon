@@ -132,19 +132,29 @@ Never call Supabase from the frontend for data operations. Everything goes throu
 Owns: tool calling, LLM integration (Google Gemini, native function calling), system prompt.
 **Chat UI is now Shads' responsibility** — Hrittika provides the backend endpoint.
 
-- [ ] `server/src/agent/systemPrompt.ts` — identity + 4 behavior rules: always read via a tool
+- [x] ~~`server/src/agent/systemPrompt.ts` — identity + 4 behavior rules: always read via a tool
       (never answer from memory), ask when a request is missing a required parameter,
       refuse when unauthorized or when no tool matches, confirm before a
-      destructive/irreversible action
+      destructive/irreversible action~~
 - [x] ~~`server/src/agent/llmClient.ts` — Google GenAI SDK (`@google/genai`) wrapper with multi-key rotation on 429 rate limits, unit tested~~
-- [ ] `server/src/agent/runAgent.ts` — the tool-use loop
-- [ ] *(depends on Shared contract's `shared/src/types/` item)* `server/src/agent/tools.ts` — the 9 tool schemas + handlers, calling `server/src/services/*.ts`
-- [ ] `server/src/routes/v1/agent.routes.ts` + `agent.controller.ts` — `POST /api/v1/agent/chat`
-- [ ] Wire tool handlers to Arko's real services once live — the one integration point
-      with Arko's track
-- [ ] Tool handlers return structured errors (`{ error: "..." }`), never raw exceptions
-- [ ] Test every query in `sample_queries/sample_queries.md`, plus the shadow-path cases:
-      nil input, empty result, booking conflict, unauthorized action
+- [x] ~~`server/src/agent/runAgent.ts` — the tool-use loop~~
+- [x] ~~`server/src/agent/tools.ts` — the 9 tool schemas + handlers~~ — built against
+      `shared/src/types/` stand-ins (`server/src/agent/types.local.ts`) and stubbed data
+      (`stubData.ts`), since `@shared/types`'s real campus types weren't merged locally yet
+      when this was written — see the integration item below
+- [x] ~~`server/src/routes/v1/agent.routes.ts` + `agent.controller.ts` — `POST /api/v1/agent/chat`~~
+      — ⚠️ built against `ARCHITECTURE.md`'s `{message, history}`/`{reply, mutated}` contract;
+      see `TASKS_HRITTIKA.md`'s doc-conflict note — a newer revision of that file describes a
+      different `{messages}`/`{response}` shape that was never reflected in `ARCHITECTURE.md`
+- [x] ~~Tool handlers return structured errors (`{ error: "..." }`), never raw exceptions~~
+- [ ] `client/src/features/campus/ChatPanel.tsx` — now Shads' — reconcile the contract
+      conflict above before wiring it up
+- [ ] Wire tool handlers to Arko's real services now that his branch is merged to `main` —
+      swap `types.local.ts` → `@shared/types` and `stubData.ts` → `services/*.ts` (same
+      method names/signatures by design, so this is an import-line change, not a rewrite)
+- [x] ~~Test every query in `sample_queries/sample_queries.md`, plus the shadow-path cases:
+      nil input, empty result, booking conflict, unauthorized action~~ — verified both via
+      `vitest` (41 tests across 5 new files) and live against the real Gemini API
 
 ---
 
@@ -163,5 +173,6 @@ Owns: tool calling, LLM integration (Google Gemini, native function calling), sy
 - **Arko** — curl every endpoint against seeded data, verify Supabase Auth login/signup/reset
 - **Shads** — exercise every CRUD action + auth flow + chat UI against mocked data, verify
   mobile viewport (360px) for all 18 routes
-- **Hrittika** — run every `sample_queries.md` query against stubbed tool responses,
-  verify shadow-path cases
+- [x] ~~**Hrittika** — run every `sample_queries.md` query against stubbed tool responses,
+  verify shadow-path cases~~ — done, plus live smoke tests against the real Gemini API
+  (see `TASKS_HRITTIKA.md`)

@@ -62,7 +62,7 @@ re-deriving it from a stale plan doc:
 - [x] Phase 1 — services/ data layer + seed script (5 services + seed + conflict handling)
 - [x] Phase 2 — REST routes (all 5 routers + controllers mounted under `/api/v1`)
 - [x] Phase 3 — Dashboard UI (18 pages built with Ocean Glass design tokens, dark/light modes)
-- [ ] Phase 4 — Agent backend (tools + tool-use loop; `llmClient.ts` key-rotation done)
+- [x] Phase 4 — Agent backend (tools + tool-use loop) — done against stubbed data, real Gemini API confirmed live; real `services/*.ts` landed in Phase 1 above, so swapping `tools.ts` off the stub layer is next; see `ARCHITECTURE.md`'s Build phases table
 - [x] Phase 5 — Chat UI (`ChatPanel.tsx` with quick chips from `sample_queries.md` integrated into admin/student)
 - [ ] Phase 6 — Test against sample_queries.md
 - [ ] Phase 7 — README + polish

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import authRoutes from './auth.routes';
 import userRoutes from './user.routes';
+import agentRoutes from './agent.routes';
 import scheduleRoutes from './schedule.routes';
 import roomRoutes from './room.routes';
 import eventRoutes from './event.routes';
@@ -13,6 +14,7 @@ const v1Router = Router();
 v1Router.get('/health', getHealth);
 v1Router.use('/auth', authRoutes);
 v1Router.use('/users', userRoutes);
+v1Router.use('/agent', agentRoutes);
 
 // CampusOS 5 Systems Routes
 v1Router.use('/schedules', scheduleRoutes);
