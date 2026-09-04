@@ -264,6 +264,11 @@ button, input, select, textarea {
   100% { background-position: 200% 0; }
 }
 
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
 @keyframes bellRing {
   0%, 100% { transform: rotate(0deg); }
   20%, 60% { transform: rotate(14deg); }
