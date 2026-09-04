@@ -13,9 +13,9 @@ contract — you don't need Arko's server running to start.
 
 ## Pre-flight (with the other two, ~15 min)
 
-- [ ] Add `studentId?: string` to `User` + `RegisterPayload` in `shared/src/types/user.types.ts`
-- [ ] Confirm `.env.example` / `VITE_API_BASE_URL` = `http://localhost:5000/api/v1`
-- [ ] Confirm all API routes are under `/api/v1/*`
+- [x] ~~Add `studentId?: string` to `User` + `RegisterPayload` in `shared/src/types/user.types.ts`~~
+- [x] ~~Confirm `.env.example` / `VITE_API_BASE_URL` = `http://localhost:5000/api/v1`~~
+- [x] ~~Confirm all API routes are under `/api/v1/*`~~
 
 ## Phase 1 — Design System (45 min)
 
