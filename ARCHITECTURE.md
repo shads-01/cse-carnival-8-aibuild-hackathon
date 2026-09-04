@@ -492,7 +492,7 @@ Mirrors the checklist in [`CLAUDE.md`](./CLAUDE.md) — update both when a phase
 | 1 — Data layer | `server/src/db/seed.ts`, `services/*.ts` for all 5 systems | Not started |
 | 2 — REST API | `routes/v1/*.ts` + `*.controller.ts`, full CRUD on all 5 | Not started |
 | 3 — Dashboard UI | 5 sections under `client/src/features/campus/`, table + add/edit dialog + delete confirm, wired to `campusService.ts` | Not started |
-| 4 — Agent backend | `server/src/agent/tools.ts`, `systemPrompt.ts`, `runAgent.ts`, `POST /api/v1/agent/chat` | Not started |
+| 4 — Agent backend | `server/src/agent/tools.ts`, `systemPrompt.ts`, `runAgent.ts`, `POST /api/v1/agent/chat` | **Done, against stubbed data** — `tools.ts` calls `stubData.ts`/`types.local.ts` (same method names/signatures as Arko's real `services/*.ts`, confirmed by reading his branch) since `origin/feat/ArKo/backend-data-layer` isn't merged yet; swap is a one-line import change per handler. 41 vitest tests across the 5 new files; live-smoke-tested against the real Gemini API. Note: `gemini-2.5-flash` now 404s ("no longer available to new users") — switched to `gemini-3.6-flash`, which also requires echoing each function-call part's `thoughtSignature` back verbatim (`runAgent.ts` replays `response.candidates[0].content` rather than reconstructing the turn). |
 | 5 — Chat UI | `ChatPanel.tsx` | Not started |
 | 6 — Test against the brief | Every query in `sample_queries/sample_queries.md` + shadow-path cases | Not started |
 | 7 — README + polish | Fill required README sections, tidy empty/loading/error states | Not started |

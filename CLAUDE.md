@@ -62,7 +62,7 @@ re-deriving it from a stale plan doc:
 - [ ] Phase 1 — services/ data layer + seed script
 - [ ] Phase 2 — REST routes
 - [ ] Phase 3 — Dashboard UI
-- [ ] Phase 4 — Agent backend (tools + tool-use loop)
+- [x] Phase 4 — Agent backend (tools + tool-use loop) — done against stubbed data, real Gemini API confirmed live; see `ARCHITECTURE.md`'s Build phases table
 - [ ] Phase 5 — Chat UI
 - [ ] Phase 6 — Test against sample_queries.md
 - [ ] Phase 7 — README + polish

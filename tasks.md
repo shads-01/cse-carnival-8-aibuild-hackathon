@@ -114,19 +114,25 @@ Owns: tool calling, LLM integration, chat UI. LLM provider: **Google Gemini**
 (function calling via `tools`/`functionDeclarations`). Build tool handlers against the
 agreed service signatures, stubbing the data calls until Arko's services are live.
 
-- [ ] `server/src/agent/systemPrompt.ts` — identity + 4 behavior rules: always read via a tool
+- [x] ~~`server/src/agent/systemPrompt.ts` — identity + 4 behavior rules: always read via a tool
       (never answer from memory), ask when a request is missing a required parameter,
       refuse when unauthorized or when no tool matches, confirm before a
-      destructive/irreversible action
-- [ ] `server/src/agent/llmClient.ts` — Google GenAI SDK (`@google/genai`) wrapper, kept swappable
-- [ ] `server/src/agent/runAgent.ts` — the tool-use loop
-- [ ] *(depends on Shared contract's `shared/src/types/` item)* `server/src/agent/tools.ts` — the 9 tool schemas + handlers
-- [ ] `server/src/routes/v1/agent.routes.ts` + `agent.controller.ts` — `POST /api/v1/agent/chat`
-- [ ] `client/src/features/campus/ChatPanel.tsx` — message list + input, calls `/api/v1/agent/chat`, refetches `campusStore` on `mutated`
-- [ ] Wire tool handlers to Arko's real services once live — the one integration point
-      with Arko's track
-- [ ] Test every query in `sample_queries/sample_queries.md`, plus the shadow-path cases:
-      nil input, empty result, booking conflict, unauthorized action
+      destructive/irreversible action~~
+- [x] ~~`server/src/agent/llmClient.ts` — Google GenAI SDK (`@google/genai`) wrapper, kept swappable~~
+- [x] ~~`server/src/agent/runAgent.ts` — the tool-use loop~~
+- [x] ~~`server/src/agent/tools.ts` — the 9 tool schemas + handlers~~ — built against
+      `shared/src/types/` stand-ins (`server/src/agent/types.local.ts`) and stubbed data
+      (`stubData.ts`), since `@shared/types`'s real campus types only exist on
+      `origin/feat/ArKo/backend-data-layer`, not merged yet — see the integration item below
+- [x] ~~`server/src/routes/v1/agent.routes.ts` + `agent.controller.ts` — `POST /api/v1/agent/chat`~~
+- [ ] `client/src/features/campus/ChatPanel.tsx` — message list + input, calls `/api/v1/agent/chat`, refetches `campusStore` on `mutated` — blocked on Shads' `campusStore.ts` landing
+- [ ] Wire tool handlers to Arko's real services once his branch is merged — swap
+      `types.local.ts` → `@shared/types` and `stubData.ts` → `services/*.ts` (same method
+      names/signatures by design, so this is an import-line change, not a rewrite) — the
+      one integration point with Arko's track
+- [x] ~~Test every query in `sample_queries/sample_queries.md`, plus the shadow-path cases:
+      nil input, empty result, booking conflict, unauthorized action~~ — verified both via
+      `vitest` (41 tests across 5 new files) and live against the real Gemini API
 
 ---
 
@@ -145,4 +151,5 @@ agreed service signatures, stubbing the data calls until Arko's services are liv
 
 - **Arko** — curl every endpoint against seeded data.
 - **Shads** — exercise every CRUD action in the UI against mocked data.
-- **Hrittika** — run every `sample_queries.md` query against stubbed tool responses.
+- [x] ~~**Hrittika** — run every `sample_queries.md` query against stubbed tool responses.~~ —
+      done, plus live smoke tests against the real Gemini API (see `TASKS_HRITTIKA.md`)
