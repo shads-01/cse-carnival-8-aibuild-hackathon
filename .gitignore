@@ -1,30 +1,31 @@
 # Dependencies
 node_modules/
-__pycache__/
-*.pyc
-.venv/
-venv/
-env/
-
-# Environment
-.env
-*.env.local
+.pnpm-store/
 
 # Build outputs
 dist/
 build/
-.next/
-out/
+.vite/
 
-# Editors
-.vscode/
-.idea/
-*.swp
-
-# OS
-.DS_Store
-Thumbs.db
+# Environment variables
+.env
+.env.local
+.env.production.local
+.env.development.local
 
 # Logs
-*.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log
+
+# Editor & OS files
+.DS_Store
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
