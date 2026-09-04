@@ -79,8 +79,18 @@ interface RawAssignment {
   marks: number;
 }
 
-export async function seedDatabase() {
+export async function seedDatabase(cleanTestArtifacts = true) {
   logger.info('🌱 Starting database seed process from data/*.json...');
+
+  if (cleanTestArtifacts) {
+    // Clean up dynamically created test records from prior runs
+    await supabase.from('event_registrations').delete().like('id', 'reg-1%');
+    await supabase.from('bookings').delete().like('id', 'bk-1%');
+    await supabase.from('events').delete().like('id', 'evt-1%');
+    await supabase.from('events').delete().like('id', 'evt-tiny%');
+    await supabase.from('rooms').delete().like('id', 'room-test%');
+    await supabase.from('schedules').delete().like('id', 'sch-test%');
+  }
 
   const dataDir = path.resolve(__dirname, '../../../data');
 

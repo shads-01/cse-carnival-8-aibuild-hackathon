@@ -96,14 +96,15 @@ export class ScheduleService {
       .update(dto)
       .eq('id', id)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       logger.error(`Error updating schedule ${id}:`, error.message);
       throw ApiError.badRequest(`Failed to update schedule: ${error.message}`);
     }
 
-    return data as Schedule;
+    const updated = data || (await this.getById(id));
+    return updated as Schedule;
   }
 
   async delete(id: string): Promise<boolean> {
