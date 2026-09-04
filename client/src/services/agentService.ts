@@ -29,7 +29,13 @@ export const agentService = {
     try {
       const response = await apiClient.post('/agent/chat', {
         message,
-        history: history.map((h) => ({ role: h.role, content: h.content }))
+        // Server's ChatTurn (agent.validator.ts / runAgent.ts) expects
+        // { role: 'user' | 'model', text }, not this client's { role: 'user' | 'assistant', content } —
+        // map both fields or every 2nd+ turn 400s and silently drops into the local fallback below.
+        history: history.map((h) => ({
+          role: h.role === 'assistant' ? 'model' : 'user',
+          text: h.content
+        }))
       });
       if (response.data?.reply || response.data?.data?.reply) {
         return {

@@ -16,8 +16,13 @@ const clients = config.gemini.apiKeys.map((apiKey) => new GoogleGenAI({ apiKey }
 // balancing across keys.
 let currentIndex = 0;
 
-function isRateLimitError(err: unknown): boolean {
-  return err instanceof ApiError && err.status === 429;
+function isRetryableKeyError(err: unknown): boolean {
+  // Originally 429-only, but a key can just as easily be dead for other
+  // reasons (403 PERMISSION_DENIED on a denied/suspended project, a bad key
+  // returning 400, a transient 5xx) — any of those should fall through to
+  // the next configured key rather than wedging the whole rotation on
+  // whichever key happens to sit at currentIndex.
+  return err instanceof ApiError;
 }
 
 async function withKeyRotation<T>(call: (client: GoogleGenAI) => Promise<T>): Promise<T> {
@@ -29,10 +34,11 @@ async function withKeyRotation<T>(call: (client: GoogleGenAI) => Promise<T>): Pr
     } catch (err) {
       lastError = err;
 
-      if (isRateLimitError(err) && attempt < clients.length - 1) {
+      if (isRetryableKeyError(err) && attempt < clients.length - 1) {
         const nextIndex = (currentIndex + 1) % clients.length;
+        const status = err instanceof ApiError ? err.status : 'unknown';
         logger.warn(
-          `Gemini key #${currentIndex} hit a rate limit (429) — rotating to key #${nextIndex}`
+          `Gemini key #${currentIndex} failed (status ${status}) — rotating to key #${nextIndex}`
         );
         currentIndex = nextIndex;
         continue;

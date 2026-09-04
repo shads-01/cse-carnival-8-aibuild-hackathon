@@ -20,6 +20,11 @@ export class AuthController {
     sendResponse(res, HttpStatus.CREATED, 'User registration successful', session);
   };
 
+  oauthCallback = async (req: Request, res: Response): Promise<void> => {
+    const session = await this.authService.loginWithGoogle(req.body.accessToken);
+    sendResponse(res, HttpStatus.OK, 'Google sign-in successful', session);
+  };
+
   getMe = async (req: Request, res: Response): Promise<void> => {
     sendResponse(res, HttpStatus.OK, 'Current user profile fetched successfully', req.user);
   };

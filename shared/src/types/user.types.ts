@@ -27,6 +27,7 @@ export interface CreateUserDto {
   name: string;
   password?: string;
   role?: UserRole;
+  avatarUrl?: string;
 }
 
 export interface UpdateUserDto {

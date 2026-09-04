@@ -3,6 +3,10 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 
 export default defineConfig({
+  // Vite's default envDir is this project root (client/); the repo's single
+  // .env lives one level up at the workspace root (see server/src/config/index.ts
+  // for the server-side equivalent), so point Vite there too.
+  envDir: path.resolve(__dirname, '..'),
   plugins: [react()],
   resolve: {
     alias: {

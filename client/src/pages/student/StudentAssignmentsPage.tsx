@@ -13,45 +13,45 @@ import { Modal } from '../../components/common/Modal';
 
 export const StudentAssignmentsPage: React.FC = () => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [submittedIds, setSubmittedIds] = useState<string[]>(() => {
-    try {
-      const raw = localStorage.getItem('submitted_assignments_cache');
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  });
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
   // Submit modal state
   const [activeSubmitTask, setActiveSubmitTask] = useState<Assignment | null>(null);
   const [submissionUrl, setSubmissionUrl] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const loadAssignments = async () => {
+    setIsLoading(true);
+    try {
+      const data = await assignmentService.getAll();
+      setAssignments(data);
+    } catch (err: any) {
+      toast.error('Failed to load assignments');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const load = async () => {
-      setIsLoading(true);
-      try {
-        const data = await assignmentService.getAll();
-        setAssignments(data);
-      } catch (err: any) {
-        toast.error('Failed to load assignments');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    load();
+    loadAssignments();
   }, []);
 
-  const handleConfirmSubmit = (e: React.FormEvent) => {
+  const handleConfirmSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeSubmitTask) return;
-    const updated = [...submittedIds, activeSubmitTask.id];
-    setSubmittedIds(updated);
-    localStorage.setItem('submitted_assignments_cache', JSON.stringify(updated));
-    toast.success(`Milestone for "${activeSubmitTask.title}" submitted successfully!`);
-    setActiveSubmitTask(null);
-    setSubmissionUrl('');
+    setIsSubmitting(true);
+    try {
+      const updated = await assignmentService.update(activeSubmitTask.id, { status: 'submitted' });
+      setAssignments((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+      toast.success(`Milestone for "${activeSubmitTask.title}" submitted successfully!`);
+      setActiveSubmitTask(null);
+      setSubmissionUrl('');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to submit — please try again');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const filtered = assignments.filter((a) => {
@@ -97,7 +97,7 @@ export const StudentAssignmentsPage: React.FC = () => {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
           {filtered.map((asg) => {
-            const isSubmitted = submittedIds.includes(asg.id);
+            const isSubmitted = asg.status === 'submitted' || asg.status === 'graded';
 
             return (
               <div
@@ -227,10 +227,10 @@ export const StudentAssignmentsPage: React.FC = () => {
           />
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
-            <Button variant="ghost" type="button" onClick={() => setActiveSubmitTask(null)}>
+            <Button variant="ghost" type="button" onClick={() => setActiveSubmitTask(null)} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button variant="primary" type="submit">
+            <Button variant="primary" type="submit" isLoading={isSubmitting}>
               Confirm Submission
             </Button>
           </div>

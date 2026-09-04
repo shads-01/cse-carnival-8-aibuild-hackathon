@@ -10,6 +10,7 @@ import { RoleGuard, SmartRedirect } from '../components/layout/RoleGuard';
 import { LoginPage } from '../pages/auth/LoginPage';
 import { SignupPage } from '../pages/auth/SignupPage';
 import { ForgotPage } from '../pages/auth/ForgotPage';
+import { OAuthCallbackPage } from '../pages/auth/OAuthCallbackPage';
 
 // Admin Pages
 import { AdminOverviewPage } from '../pages/admin/AdminOverviewPage';
@@ -47,6 +48,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/forgot" element={<ForgotPage />} />
+        <Route path="/auth/callback" element={<OAuthCallbackPage />} />
       </Route>
 
       {/* Admin Operations Shell (8 routes) */}

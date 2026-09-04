@@ -29,6 +29,19 @@ export const authService = {
     return session;
   },
 
+  loginWithGoogle: async (accessToken: string): Promise<AuthSession> => {
+    const response = await apiClient.post<ApiResponse<AuthSession>>('/auth/oauth/callback', {
+      accessToken
+    });
+    if (!response.data.data) {
+      throw new Error(response.data.message || 'Google sign-in failed');
+    }
+    const session = response.data.data;
+    localStorage.setItem('auth_token', session.token);
+    localStorage.setItem('auth_user', JSON.stringify(session.user));
+    return session;
+  },
+
   getMe: async (): Promise<User> => {
     const response = await apiClient.get<ApiResponse<User>>('/auth/me');
     if (!response.data.data) {

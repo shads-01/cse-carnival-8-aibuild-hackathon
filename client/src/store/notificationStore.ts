@@ -20,35 +20,27 @@ interface NotificationState {
   clearAll: () => void;
 }
 
-const initialNotifications: NotificationItem[] = [
-  {
-    id: 'notif-1',
-    title: 'Room Booking Confirmed',
-    message: 'Your booking for Lab 401 on Friday 10:00 AM has been approved by admin.',
-    type: 'booking_approved',
-    read: false,
-    created_at: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
-    link: '/app/activity'
-  },
-  {
-    id: 'notif-2',
-    title: 'New High Priority Announcement',
-    message: 'Midterm Examination Schedule for CSE 8th Semester has been published.',
-    type: 'announcement',
-    read: false,
-    created_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-    link: '/app/announcements'
-  },
-  {
-    id: 'notif-3',
-    title: 'Upcoming Assignment Due',
-    message: 'Distributed Systems Project Milestone 2 is due in 24 hours.',
-    type: 'assignment',
-    read: true,
-    created_at: new Date(Date.now() - 1000 * 60 * 360).toISOString(),
-    link: '/app/assignments'
+const STORAGE_KEY = 'campus_notifications_cache';
+
+const getStoredNotifications = (): NotificationItem[] => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    // ignore corrupt cache
   }
-];
+  return [];
+};
+
+const persist = (notifications: NotificationItem[]) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(notifications));
+  } catch (e) {
+    // storage unavailable — notifications still work for this session
+  }
+};
+
+const initialNotifications = getStoredNotifications();
 
 export const useNotificationStore = create<NotificationState>((set) => ({
   notifications: initialNotifications,
@@ -63,6 +55,7 @@ export const useNotificationStore = create<NotificationState>((set) => ({
     };
     set((state) => {
       const updated = [newNotif, ...state.notifications];
+      persist(updated);
       return {
         notifications: updated,
         unreadCount: updated.filter((n) => !n.read).length
@@ -75,6 +68,7 @@ export const useNotificationStore = create<NotificationState>((set) => ({
       const updated = state.notifications.map((n) =>
         n.id === id ? { ...n, read: true } : n
       );
+      persist(updated);
       return {
         notifications: updated,
         unreadCount: updated.filter((n) => !n.read).length
@@ -83,11 +77,15 @@ export const useNotificationStore = create<NotificationState>((set) => ({
   },
 
   markAllAsRead: () => {
-    set((state) => ({
-      notifications: state.notifications.map((n) => ({ ...n, read: true })),
-      unreadCount: 0
-    }));
+    set((state) => {
+      const updated = state.notifications.map((n) => ({ ...n, read: true }));
+      persist(updated);
+      return { notifications: updated, unreadCount: 0 };
+    });
   },
 
-  clearAll: () => set({ notifications: [], unreadCount: 0 })
+  clearAll: () => {
+    persist([]);
+    set({ notifications: [], unreadCount: 0 });
+  }
 }));

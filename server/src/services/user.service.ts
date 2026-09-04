@@ -187,6 +187,7 @@ export class UserService {
       name: dto.name,
       role: dto.role || UserRole.USER,
       status: UserStatus.ACTIVE,
+      avatarUrl: dto.avatarUrl,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -200,7 +201,8 @@ export class UserService {
           name: newUser.name,
           password_hash: passwordHash,
           role: newUser.role,
-          status: newUser.status
+          status: newUser.status,
+          avatar_url: newUser.avatarUrl
         })
         .select()
         .single();

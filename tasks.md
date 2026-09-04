@@ -138,23 +138,35 @@ Owns: tool calling, LLM integration (Google Gemini, native function calling), sy
       destructive/irreversible action~~
 - [x] ~~`server/src/agent/llmClient.ts` — Google GenAI SDK (`@google/genai`) wrapper with multi-key rotation on 429 rate limits, unit tested~~
 - [x] ~~`server/src/agent/runAgent.ts` — the tool-use loop~~
-- [x] ~~`server/src/agent/tools.ts` — the 9 tool schemas + handlers~~ — built against
-      `shared/src/types/` stand-ins (`server/src/agent/types.local.ts`) and stubbed data
-      (`stubData.ts`), since `@shared/types`'s real campus types weren't merged locally yet
-      when this was written — see the integration item below
+- [x] ~~`server/src/agent/tools.ts` — the 9 tool schemas + handlers~~ — originally built
+      against `shared/src/types/` stand-ins (`types.local.ts`) and stubbed data
+      (`stubData.ts`); both deleted as of 2026-09-04 — `tools.ts` now imports the 5 real
+      `services/*.ts` + `@shared/types` directly (confirmed)
 - [x] ~~`server/src/routes/v1/agent.routes.ts` + `agent.controller.ts` — `POST /api/v1/agent/chat`~~
       — ⚠️ built against `ARCHITECTURE.md`'s `{message, history}`/`{reply, mutated}` contract;
       see `TASKS_HRITTIKA.md`'s doc-conflict note — a newer revision of that file describes a
       different `{messages}`/`{response}` shape that was never reflected in `ARCHITECTURE.md`
 - [x] ~~Tool handlers return structured errors (`{ error: "..." }`), never raw exceptions~~
-- [ ] `client/src/features/campus/ChatPanel.tsx` — now Shads' — reconcile the contract
-      conflict above before wiring it up
-- [ ] Wire tool handlers to Arko's real services now that his branch is merged to `main` —
+- [x] ~~`client/src/features/campus/ChatPanel.tsx` — now Shads' — reconcile the contract
+      conflict above before wiring it up~~ — resolved to `ARCHITECTURE.md`'s
+      `{message, history}` → `{reply, mutated}`; `agentService.ts`/`ChatPanel.tsx` and
+      `agent.controller.ts` agree on that shape (a narrower field-name bug inside it was
+      found 2026-09-04 — see below, not the same shape conflict)
+- [x] ~~Wire tool handlers to Arko's real services now that his branch is merged to `main` —
       swap `types.local.ts` → `@shared/types` and `stubData.ts` → `services/*.ts` (same
-      method names/signatures by design, so this is an import-line change, not a rewrite)
+      method names/signatures by design, so this is an import-line change, not a rewrite)~~
+      — done, both files deleted, confirmed via `tools.ts` imports 2026-09-04
 - [x] ~~Test every query in `sample_queries/sample_queries.md`, plus the shadow-path cases:
-      nil input, empty result, booking conflict, unauthorized action~~ — verified both via
-      `vitest` (41 tests across 5 new files) and live against the real Gemini API
+      nil input, empty result, booking conflict, unauthorized action~~ — `vitest` suite is
+      real and passing (85/85 tests across 10 files as of 2026-09-04, up from the 41
+      recorded here). The "live against the real Gemini API" half needs a caveat: a
+      2026-09-04 re-run against the actually-running server got 5/9 sample queries
+      confirmed live before hitting Gemini's free-tier daily quota (20 req/day/key), and
+      surfaced a real bug — `agentService.ts` sends chat history as `{role, content}` but
+      `agent.validator.ts` requires `{role, text}`, so every 2nd+ turn of a conversation
+      (incl. the vague-booking clarify-then-confirm flow) 400s and silently falls back to
+      a hardcoded keyword-bot instead of the real agent. Full detail + fix suggestion in
+      `TASKS_HRITTIKA.md`'s "2026-09-04 live-verification pass" section — not yet fixed.
 
 ---
 

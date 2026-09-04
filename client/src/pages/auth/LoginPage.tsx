@@ -4,6 +4,7 @@ import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { authService } from '../../services/authService';
+import { supabaseClient } from '../../services/supabaseClient';
 import { useAuthStore } from '../../store/authStore';
 import { toast } from '../../store/toastStore';
 import { UserRole } from '@shared/types';
@@ -63,12 +64,16 @@ export const LoginPage: React.FC = () => {
     handleLogin(email, password);
   };
 
-  const handleGoogleSignIn = () => {
-    // Demo Google OAuth sign-in flow
-    const defaultGoogleEmail = roleTab === 'admin' ? 'admin@campus.edu' : 'student@campus.edu';
-    const defaultGooglePass = roleTab === 'admin' ? 'admin123' : 'student123';
-    toast.info('Authenticating via Google Edu OAuth...');
-    handleLogin(defaultGoogleEmail, defaultGooglePass);
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    const { error: oauthError } = await supabaseClient.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/callback` }
+    });
+    if (oauthError) {
+      toast.error(oauthError.message || 'Could not start Google sign-in.');
+    }
+    // On success the browser navigates away to Google, then back to /auth/callback.
   };
 
   return (

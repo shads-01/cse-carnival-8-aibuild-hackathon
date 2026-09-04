@@ -84,21 +84,58 @@ logic behind it.
 Run every query in `sample_queries/sample_queries.md` against stubbed (or real) tool responses:
 
 - [x] ~~"When is my next class?" → calls `get_schedule`, returns correct data~~ — verified live
-- [ ] "What assignments do I have due this week?" → calls `get_assignments`, filters by date
-- [x] ~~"Book Room 7A02 tomorrow from 3 PM to 5 PM" → calls `book_room`, returns confirmation~~ — verified live
-- [ ] "Register me for the Guest Lecture on Deep Learning" → calls `register_for_event`
-- [x] ~~Vague request ("book me any room") → agent **asks** for time/capacity/date~~ — verified live
+- [x] ~~"What assignments do I have due this week?" → calls `get_assignments`, filters by date~~ — re-verified live 2026-09-04 against the running server (real Gemini + Supabase)
+- [x] ~~"Book Room 7A02 tomorrow from 3 PM to 5 PM" → calls `book_room`, returns confirmation~~ — verified live (earlier session; not re-run 2026-09-04, see quota note below)
+- [ ] "Register me for the Guest Lecture on Deep Learning" → calls `register_for_event` — not re-verified 2026-09-04 (Gemini free-tier daily quota exhausted before reaching this query, see note below)
+- [x] ~~Vague request ("book me any room") → agent **asks** for time/capacity/date~~ — marked verified live, but **this claim is now contradicted** — see "2026-09-04 live-verification pass" below, the follow-up turn of this exact flow currently 400s
 - [x] ~~Conflict (room already booked) → agent relays the conflict, doesn't double-book~~ — verified via vitest (tools.test.ts)
-- [x] ~~Unauthorized (cancel someone else's booking) → agent **refuses** with reason~~ — verified live
+- [x] ~~Unauthorized (cancel someone else's booking) → agent **refuses** with reason~~ — verified live (earlier session; not re-run 2026-09-04)
 - [x] ~~At capacity (event full) → agent says so, doesn't register~~ — verified via vitest (tools.test.ts)
-- [ ] "I need a room for 5 people with a projector" → calls `find_available_rooms` with filters
+- [ ] "I need a room for 5 people with a projector" → calls `find_available_rooms` with filters — not re-verified 2026-09-04 (quota exhausted)
+
+## 2026-09-04 live-verification pass (against the actually-running server)
+
+Ran `npm run test --workspace=server` (85/85 passing, 10 files — includes `tools.test.ts`'s
+nil/missing-param, empty-result, booking-conflict, unauthorized, and at-capacity shadow paths)
+and then hit the live `POST /api/v1/agent/chat` on the server already running on :5000
+(real Gemini + Supabase, not mocks) with queries from `sample_queries/sample_queries.md`.
+5 of 9 came back correct before the free key ran out of daily quota: next class, Wednesday's
+classes, assignments due this week, high-priority announcements, and the free-until-2PM
+multi-source (schedule+events) query. Two problems surfaced that aren't reflected anywhere
+else in this repo's docs yet:
+
+1. **Multi-turn history shape mismatch — breaks every 2nd+ turn of a conversation.**
+   `client/src/services/agentService.ts` sends each history item as `{ role, content }`;
+   `server/src/validators/agent.validator.ts`'s Zod schema requires `{ role, text }`.
+   Confirmed live: posting `content` → `400 "history.0.text: Required"`; posting `text` →
+   passes validation. Because `agentService.sendMessage`'s try/catch treats any non-2xx as
+   "backend offline" and silently falls back to `handleLocalAgentFallback()` — a hardcoded
+   keyword-matching stub that never calls Gemini or a real tool — this means **every
+   follow-up message in the chat UI quietly stops using the real agent**, including the
+   book-a-room clarify-then-confirm flow the problem statement calls out by name. The
+   fallback's own "book" branch also just grabs `rooms[0]` and force-creates a request
+   with no availability check and no clarifying question, which is the opposite of the
+   required behavior. Fix is either field-align `agentService.ts` to `{role, text}` or
+   the validator to accept `content` — one-line either way, not yet applied.
+2. **`gemini-3.6-flash` free tier is capped at 20 requests/day per project per key.**
+   With 2 keys in `.env` that's ~40 requests/day total, and a fresh `429
+   RESOURCE_EXHAUSTED` (`GenerateRequestsPerDayPerProjectPerModel-FreeTier`) hit after
+   only ~7 live calls today. On that error the client's fallback masks it the same way as
+   bug 1 — no visible error, just a silent switch to the fake keyword bot. Worth deciding
+   before judging: upgrade billing, add more keys, or budget how many live queries are
+   safe to spend during rehearsal so the real quota is available when it's graded.
 
 ## Integration (last ~30 min, all 3 together)
 
-- [ ] Wire tool handlers to Arko's real services — his branch is merged to `main` now;
-      swap `types.local.ts` → `@shared/types` and `stubData.ts` → `services/*.ts`
-- [ ] **Resolve the request/response shape conflict noted at the top of this file** before
-      wiring up `ChatPanel.tsx`
+- [x] ~~Wire tool handlers to Arko's real services — his branch is merged to `main` now;
+      swap `types.local.ts` → `@shared/types` and `stubData.ts` → `services/*.ts`~~ — done;
+      `stubData.ts`/`types.local.ts` deleted, `tools.ts` now imports the 5 real
+      `services/*.ts` + `@shared/types` directly (confirmed 2026-09-04)
+- [x] ~~**Resolve the request/response shape conflict noted at the top of this file** before
+      wiring up `ChatPanel.tsx`~~ — resolved in favor of `ARCHITECTURE.md`'s
+      `{message, history}` → `{reply, mutated}`; `agent.controller.ts` and
+      `ChatPanel.tsx`/`agentService.ts` agree on that shape (see the new history-field bug
+      above, which is a narrower mismatch inside that agreed shape, not the same conflict)
 - [ ] Full walkthrough with Shads: edit via dashboard → immediately ask agent → confirm
       the answer reflects the edit
 - [ ] Verify Shads' `ChatPanel.tsx` correctly calls `POST /api/v1/agent/chat` and renders responses
