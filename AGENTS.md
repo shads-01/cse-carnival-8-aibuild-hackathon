@@ -6,16 +6,13 @@ implementing from scratch. See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the fu
 design: data model, REST/agent-tool contracts, and a request-lifecycle trace. This file is
 the durable reference for conventions once code exists.
 
-**Current state (updated 2026-09-04):** the directory layout is **not** `backend/`/
-`frontend/` as originally planned — it's an npm-workspaces monorepo, `client/` + `server/` +
-`shared/`, scaffolded with generic auth/user boilerplate that predates the CampusOS domain.
-`server/src/db/schema.sql` (the real 7-table schema) is the one piece of the actual domain
-that exists. Start at Phase 1 in `PLAN.md` (Phase 0's scaffold already landed, just not in
-the shape `PLAN.md` describes). See `ARCHITECTURE.md`'s
-[status banner](./ARCHITECTURE.md#status-as-of-this-writing--read-this-first),
-[open decisions](./ARCHITECTURE.md#open-decisions--risks) (why the layout changed), and
-[build-phases table](./ARCHITECTURE.md#build-phases--current-status) before assuming
-otherwise, and update both this note and that table as phases land.
+**Current state (updated 2026-09-04):** the monorepo workspaces (`client/`, `server/`,
+`shared/`) have the real CampusOS domain completely implemented across Phase 1 (services
+& seed), Phase 2 (REST API under `/api/v1`), Phase 3 (all 18 dashboard pages across Admin,
+Student, and Auth shells using Ocean Glass design system, verified building cleanly), and
+Phase 5 (Chat UI with `sample_queries.md` chips). Both `server` and `client` build with
+zero TypeScript or bundling errors. Next focus is completing the tool-calling loop in
+`server/src/agent/` and final end-to-end integration.
 
 ## What this repo is
 

@@ -8,16 +8,15 @@
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "noEmit": true,
+    "resolveJsonModule": true,
     "baseUrl": ".",
     "types": ["vite/client"],
     "paths": {
       "@shared": ["../shared/src/index.ts"],
       "@shared/*": ["../shared/src/*"],
+      "@shared/types": ["../shared/src/index.ts"],
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*"],
-  "references": [
-    { "path": "../shared" }
-  ]
+  "include": ["src/**/*"]
 }

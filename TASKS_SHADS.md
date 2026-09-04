@@ -19,92 +19,92 @@ contract — you don't need Arko's server running to start.
 
 ## Phase 1 — Design System (45 min)
 
-- [ ] Rewrite `client/src/index.css` with Ocean Glass token system (dark + light modes):
+- [x] ~~Rewrite `client/src/index.css` with Ocean Glass token system (dark + light modes):
       Ocean Depth palette (navy→cyan) rendered through Apple Liquid Glass (translucent,
-      `backdrop-filter: blur(40px) saturate(1.8)`, tinted borders)
-- [ ] Update `Button.tsx`, `Input.tsx`, `Card.tsx`, `Modal.tsx` to use glass tokens
-- [ ] Build `ThemeToggle.tsx` — dark/light toggle, persists to `localStorage('campusos-theme')`
-- [ ] Build `StatusBadge.tsx` — semantic pills: pending=amber, confirmed=green, rejected=red
-- [ ] Build `StatCard.tsx` — glass card with icon, label, value, sub-text
-- [ ] Build `Skeleton.tsx` — shimmer loading placeholder
-- [ ] Build `Toast.tsx` + `toastStore.ts` — success/error/info toasts, auto-dismiss 4s
-- [ ] Build `EmptyState.tsx` — friendly message when data is empty
-- [ ] Build `themeStore.ts` — dark/light state persisted to localStorage
+      `backdrop-filter: blur(40px) saturate(1.8)`, tinted borders)~~
+- [x] ~~Update `Button.tsx`, `Input.tsx`, `Card.tsx`, `Modal.tsx` to use glass tokens~~
+- [x] ~~Build `ThemeToggle.tsx` — dark/light toggle, persists to `localStorage('campusos-theme')`~~
+- [x] ~~Build `StatusBadge.tsx` — semantic pills: pending=amber, confirmed=green, rejected=red~~
+- [x] ~~Build `StatCard.tsx` — glass card with icon, label, value, sub-text~~
+- [x] ~~Build `Skeleton.tsx` — shimmer loading placeholder~~
+- [x] ~~Build `Toast.tsx` + `toastStore.ts` — success/error/info toasts, auto-dismiss 4s~~
+- [x] ~~Build `EmptyState.tsx` — friendly message when data is empty~~
+- [x] ~~Build `themeStore.ts` — dark/light state persisted to localStorage~~
 
 ## Phase 2 — Routing & Layouts (30 min)
 
-- [ ] Build `AdminLayout.tsx` — sidebar (glass, collapsible → hamburger on mobile) + `<Outlet />`
-- [ ] Build `AdminSidebar.tsx` — 8 nav items with icons + pending-request badge
-- [ ] Build `StudentLayout.tsx` — top navbar + bottom tab bar (mobile) + `<Outlet />`
-- [ ] Build `StudentNavbar.tsx` — logo, NotificationBell, user avatar, ThemeToggle
-- [ ] Build `StudentBottomTabs.tsx` — Home, Schedule, Events, Chat (mobile only)
-- [ ] Build `AuthLayout.tsx` — centered card on ocean gradient background
-- [ ] Build `RoleGuard.tsx` — not authenticated → `/login`, wrong role → correct home
-- [ ] Build `SmartRedirect.tsx` — `/` + `*` → role-appropriate home or `/login`
-- [ ] Rewrite `AppRoutes.tsx` — full nested route tree (18 routes, 3 layout shells)
-- [ ] Wire placeholder pages for all routes
-- [ ] **Delete** old: `AppLayout.tsx`, `Sidebar.tsx`, `Navbar.tsx`, `Footer.tsx`, `Home.tsx`, `Dashboard.tsx`
+- [x] ~~Build `AdminLayout.tsx` — sidebar (glass, collapsible → hamburger on mobile) + `<Outlet />`~~
+- [x] ~~Build `AdminSidebar.tsx` — 8 nav items with icons + pending-request badge~~
+- [x] ~~Build `StudentLayout.tsx` — top navbar + bottom tab bar (mobile) + `<Outlet />`~~
+- [x] ~~Build `StudentNavbar.tsx` — logo, NotificationBell, user avatar, ThemeToggle~~
+- [x] ~~Build `StudentBottomTabs.tsx` — Home, Schedule, Events, Chat (mobile only)~~
+- [x] ~~Build `AuthLayout.tsx` — centered card on ocean gradient background~~
+- [x] ~~Build `RoleGuard.tsx` — not authenticated → `/login`, wrong role → correct home~~
+- [x] ~~Build `SmartRedirect.tsx` — `/` + `*` → role-appropriate home or `/login`~~
+- [x] ~~Rewrite `AppRoutes.tsx` — full nested route tree (18 routes, 3 layout shells)~~
+- [x] ~~Wire placeholder pages for all routes~~
+- [x] ~~**Delete** old: `AppLayout.tsx`, `Sidebar.tsx`, `Navbar.tsx`, `Footer.tsx`, `Home.tsx`, `Dashboard.tsx`~~
 
 ## Phase 3 — Auth Pages (40 min)
 
-- [ ] Build `OtpFlow.tsx` — 6-digit OTP input + resend timer (shared: signup + forgot)
-- [ ] Rebuild `LoginForm.tsx` — Student/Admin role tabs, email+password, Google OAuth button,
-      demo-creds card (admin@campusos.edu / alex.dev@campusos.edu, one-tap fill)
-- [ ] Rebuild `RegisterForm.tsx` — multi-step: edu email → OTP → password + name + studentId
-- [ ] Build `ForgotForm.tsx` — email → OTP → new password + confirm
-- [ ] Build `LoginPage.tsx`, `SignupPage.tsx`, `ForgotPage.tsx` with `AuthLayout`
-- [ ] Update `authStore.ts` + `authService.ts` for Supabase Auth (signInWithPassword,
-      signInWithOtp, signInWithOAuth, resetPasswordForEmail, verifyOtp)
+- [x] ~~Build `OtpFlow.tsx` — 6-digit OTP input + resend timer (shared: signup + forgot)~~
+- [x] ~~Rebuild `LoginForm.tsx` — Student/Admin role tabs, email+password, Google OAuth button,
+      demo-creds card (admin@campusos.edu / alex.dev@campusos.edu, one-tap fill)~~
+- [x] ~~Rebuild `RegisterForm.tsx` — multi-step: edu email → OTP → password + name + studentId~~
+- [x] ~~Build `ForgotForm.tsx` — email → OTP → new password + confirm~~
+- [x] ~~Build `LoginPage.tsx`, `SignupPage.tsx`, `ForgotPage.tsx` with `AuthLayout`~~
+- [x] ~~Update `authStore.ts` + `authService.ts` for Supabase Auth (signInWithPassword,
+      signInWithOtp, signInWithOAuth, resetPasswordForEmail, verifyOtp)~~
 
 ## Phase 4 — Reusable CRUD Components + Services (45 min)
 
-- [ ] Build `DataTable.tsx` — sortable, searchable glass table (mobile: card view)
-- [ ] Build `RecordDialog.tsx` — configurable add/edit dialog (glass modal)
-- [ ] Build `ConfirmDialog.tsx` — danger confirm for delete/cancel
-- [ ] Build 8 client services (clone `userService.ts` pattern): schedules, rooms, events,
-      announcements, assignments, requests, notifications, agent
-- [ ] Add shared types: `schedule.types.ts`, `room.types.ts`, `event.types.ts`,
-      `announcement.types.ts`, `assignment.types.ts`, `notification.types.ts`
-- [ ] Extend `API_ROUTES` in `shared/src/constants/routes.ts` with all systems
+- [x] ~~Build `DataTable.tsx` — sortable, searchable glass table (mobile: card view)~~
+- [x] ~~Build `RecordDialog.tsx` — configurable add/edit dialog (glass modal)~~
+- [x] ~~Build `ConfirmDialog.tsx` — danger confirm for delete/cancel~~
+- [x] ~~Build 8 client services (clone `userService.ts` pattern): schedules, rooms, events,
+      announcements, assignments, requests, notifications, agent~~
+- [x] ~~Add shared types: `schedule.types.ts`, `room.types.ts`, `event.types.ts`,
+      `announcement.types.ts`, `assignment.types.ts`, `notification.types.ts`~~
+- [x] ~~Extend `API_ROUTES` in `shared/src/constants/routes.ts` with all systems~~
 
 ## Phase 5 — Admin CRUD Pages (60 min)
 
-- [ ] `AdminOverview` — stat cards, pending-request counter, today's schedule, announcements
-- [ ] `AdminSchedules` — DataTable + add/edit/delete
-- [ ] `AdminRooms` — DataTable + register/retire + expandable bookings sub-view
-- [ ] `AdminEvents` — DataTable + registrations sub-view + capacity bar
-- [ ] `AdminAnnouncements` — DataTable + priority badges
-- [ ] `AdminAssignments` — DataTable + deadline urgency indicators
-- [ ] `AdminRequests` — approval queue with status tabs, approve/reject, batch approve
-- [ ] Every mutation → toast + immediate UI update from response
+- [x] ~~`AdminOverview` — stat cards, pending-request counter, today's schedule, announcements~~
+- [x] ~~`AdminSchedules` — DataTable + add/edit/delete~~
+- [x] ~~`AdminRooms` — DataTable + register/retire + expandable bookings sub-view~~
+- [x] ~~`AdminEvents` — DataTable + registrations sub-view + capacity bar~~
+- [x] ~~`AdminAnnouncements` — DataTable + priority badges~~
+- [x] ~~`AdminAssignments` — DataTable + deadline urgency indicators~~
+- [x] ~~`AdminRequests` — approval queue with status tabs, approve/reject, batch approve~~
+- [x] ~~Every mutation → toast + immediate UI update from response~~
 
 ## Phase 6 — Student Pages (50 min)
 
-- [ ] `StudentHome` — next-class countdown, today's timeline, deadlines, announcements,
-      events, my-requests horizontal strip, quick actions
-- [ ] `StudentSchedule` — read-only weekly grid (Sun–Thu), day tabs on mobile
-- [ ] `StudentEvents` — card grid + capacity bars + one-tap register (identity prefilled)
-- [ ] `StudentAnnouncements` — priority filter chips, expired dimming
-- [ ] `StudentAssignments` — urgency badges, status filter chips
-- [ ] `StudentActivity` — my requests (cancel-while-pending) + my registrations + cancel
+- [x] ~~`StudentHome` — next-class countdown, today's timeline, deadlines, announcements,
+      events, my-requests horizontal strip, quick actions~~
+- [x] ~~`StudentSchedule` — read-only weekly grid (Sun–Thu), day tabs on mobile~~
+- [x] ~~`StudentEvents` — card grid + capacity bars + one-tap register (identity prefilled)~~
+- [x] ~~`StudentAnnouncements` — priority filter chips, expired dimming~~
+- [x] ~~`StudentAssignments` — urgency badges, status filter chips~~
+- [x] ~~`StudentActivity` — my requests (cancel-while-pending) + my registrations + cancel~~
 
 ## Phase 7 — Chat UI (35 min)
 
-- [ ] Build `ChatPanel.tsx` — message list + input + quick-prompt chips
-- [ ] Build `ChatBubble.tsx` — glass user/agent bubbles
-- [ ] Build `QuickChips.tsx` — sample_queries.md verbatim as one-tap buttons
-- [ ] Build `TypingIndicator.tsx` — 3 bouncing dots in glass bubble
-- [ ] Wire to `agentService.ts` → `POST /api/v1/agent/chat`
-- [ ] Build `AdminChat` page + `StudentChat` page (same ChatPanel, different system prompt context)
+- [x] ~~Build `ChatPanel.tsx` — message list + input + quick-prompt chips~~
+- [x] ~~Build `ChatBubble.tsx` — glass user/agent bubbles~~
+- [x] ~~Build `QuickChips.tsx` — sample_queries.md verbatim as one-tap buttons~~
+- [x] ~~Build `TypingIndicator.tsx` — 3 bouncing dots in glass bubble~~
+- [x] ~~Wire to `agentService.ts` → `POST /api/v1/agent/chat`~~
+- [x] ~~Build `AdminChat` page + `StudentChat` page (same ChatPanel, different system prompt context)~~
 
 ## Phase 8 — Notifications + Polish (25 min)
 
-- [ ] Build `NotificationBell.tsx` — bell icon + unread badge + glass dropdown
-- [ ] Build `notificationService.ts` + `notificationStore.ts` — polling for unread count
-- [ ] Deep-links from notifications to relevant items
-- [ ] Animation pass: page transitions (fadeSlideUp), card hover lifts, button ripples
-- [ ] Responsive pass: verify all 18 routes at 360px, 768px, 1280px
-- [ ] Dark/light mode pass: verify all pages in both themes
+- [x] ~~Build `NotificationBell.tsx` — bell icon + unread badge + glass dropdown~~
+- [x] ~~Build `notificationService.ts` + `notificationStore.ts` — polling for unread count~~
+- [x] ~~Deep-links from notifications to relevant items~~
+- [x] ~~Animation pass: page transitions (fadeSlideUp), card hover lifts, button ripples~~
+- [x] ~~Responsive pass: verify all 18 routes at 360px, 768px, 1280px~~
+- [x] ~~Dark/light mode pass: verify all pages in both themes~~
 
 ## Non-negotiable rules
 
