@@ -11,13 +11,16 @@ import { logger } from '../utils/logger';
 import { normalizeAndValidateTimeRange } from '../utils/timeUtils';
 
 export class EventService {
-  async list(filter?: { status?: string; venue?: string; organizer?: string }): Promise<Event[]> {
+  async list(filter?: { date?: string; status?: string; venue?: string; organizer?: string }): Promise<Event[]> {
     try {
       let query = supabase
         .from('events_with_registration_count')
         .select('*, registrations:event_registrations(*)');
 
       if (filter) {
+        if (filter.date) {
+          query = query.eq('date', filter.date);
+        }
         if (filter.status) {
           query = query.eq('status', filter.status);
         }

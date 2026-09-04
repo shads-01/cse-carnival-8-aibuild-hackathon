@@ -1,13 +1,11 @@
 import { Type, type FunctionDeclaration } from '@google/genai';
 import { ApiError } from '../utils/apiResponse';
-import {
-  announcementService,
-  assignmentService,
-  eventService,
-  roomService,
-  scheduleService
-} from './stubData';
-import type { BookRoomDto, FindAvailableRoomsDto, RegisterEventDto } from './types.local';
+import { announcementService } from '../services/announcementService';
+import { assignmentService } from '../services/assignmentService';
+import { eventService } from '../services/eventService';
+import { roomService } from '../services/roomService';
+import { scheduleService } from '../services/scheduleService';
+import type { BookRoomDto, FindAvailableRoomsDto, RegisterEventDto } from '@shared/types';
 
 export type ToolResult = Record<string, unknown>;
 export type ToolArgs = Record<string, unknown>;
