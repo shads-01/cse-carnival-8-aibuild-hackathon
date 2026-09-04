@@ -28,6 +28,7 @@ apiClient.interceptors.response.use(
   (error: AxiosError<ApiResponse>) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
     }
     const message =
       error.response?.data?.message || error.message || 'An unexpected API error occurred';

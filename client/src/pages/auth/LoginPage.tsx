@@ -33,7 +33,7 @@ export const LoginPage: React.FC = () => {
     try {
       const session = await authService.login({
         email: loginEmail,
-        password: loginPass || 'password123'
+        password: loginPass !== undefined ? loginPass : password
       });
       setSession(session.user, session.token);
       toast.success(`Welcome back, ${session.user.name}!`);
@@ -56,14 +56,19 @@ export const LoginPage: React.FC = () => {
       setError('Please enter your email address');
       return;
     }
+    if (!password) {
+      setError('Please enter your password');
+      return;
+    }
     handleLogin(email, password);
   };
 
   const handleGoogleSignIn = () => {
     // Demo Google OAuth sign-in flow
     const defaultGoogleEmail = roleTab === 'admin' ? 'admin@campus.edu' : 'student@campus.edu';
+    const defaultGooglePass = roleTab === 'admin' ? 'admin123' : 'student123';
     toast.info('Authenticating via Google Edu OAuth...');
-    handleLogin(defaultGoogleEmail);
+    handleLogin(defaultGoogleEmail, defaultGooglePass);
   };
 
   return (
