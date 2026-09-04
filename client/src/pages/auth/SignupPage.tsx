@@ -7,6 +7,7 @@ import { OtpFlow } from '../../components/auth/OtpFlow';
 import { authService } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
 import { toast } from '../../store/toastStore';
+import { UserRole } from '@shared/types';
 import { Mail, Lock, User, BadgeCheck, ArrowLeft, CheckCircle } from 'lucide-react';
 
 export const SignupPage: React.FC = () => {
@@ -67,7 +68,11 @@ export const SignupPage: React.FC = () => {
       });
       setSession(session.user, session.token);
       toast.success(`Account created! Welcome to CampusOS, ${name}`);
-      navigate('/app', { replace: true });
+      if (session.user.role === UserRole.ADMIN) {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/app', { replace: true });
+      }
     } catch (err: any) {
       setError(err.message || 'Registration failed');
     } finally {

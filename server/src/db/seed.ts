@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import bcrypt from 'bcryptjs';
 import { supabase } from '../config/supabase';
 import { logger } from '../utils/logger';
 
@@ -90,6 +91,65 @@ export async function seedDatabase(cleanTestArtifacts = true) {
     await supabase.from('events').delete().like('id', 'evt-tiny%');
     await supabase.from('rooms').delete().like('id', 'room-test%');
     await supabase.from('schedules').delete().like('id', 'sch-test%');
+  }
+
+  // 0. Seed Demo Users
+  const adminHash = await bcrypt.hash('admin123', 10);
+  const studentHash = await bcrypt.hash('student123', 10);
+
+  const demoUsers = [
+    {
+      id: 'usr-admin-01',
+      email: 'admin@campus.edu',
+      name: 'Campus Administrator',
+      password_hash: adminHash,
+      role: 'ADMIN',
+      status: 'ACTIVE',
+      avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: 'usr-admin-02',
+      email: 'admin@campusos.edu',
+      name: 'System Admin',
+      password_hash: adminHash,
+      role: 'ADMIN',
+      status: 'ACTIVE',
+      avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: 'usr-student-01',
+      email: 'student@campus.edu',
+      name: 'Rahim Ahmed',
+      password_hash: studentHash,
+      role: 'USER',
+      status: 'ACTIVE',
+      avatar_url: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: 'usr-student-02',
+      email: 'alex.dev@campusos.edu',
+      name: 'Alex Johnson',
+      password_hash: studentHash,
+      role: 'USER',
+      status: 'ACTIVE',
+      avatar_url: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+  ];
+
+  logger.info(`Loading ${demoUsers.length} users...`);
+  const { error: usersError } = await supabase.from('users').upsert(demoUsers, { onConflict: 'id' });
+  if (usersError) {
+    logger.warn('Note on seeding users table into Supabase (will use service fallback if table not yet created):', usersError.message);
+  } else {
+    logger.info('✅ Users seeded successfully.');
   }
 
   const dataDir = path.resolve(__dirname, '../../../data');

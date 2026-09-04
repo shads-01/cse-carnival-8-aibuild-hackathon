@@ -1,15 +1,21 @@
+import bcrypt from 'bcryptjs';
 import { supabase } from '../config/supabase';
 import { User, CreateUserDto, UpdateUserDto, UserRole, UserStatus } from '@shared/types';
 import { mapUserRowToEntity, UserDbRow } from '../models/user.model';
 import { ApiError } from '../utils/apiResponse';
 import { logger } from '../utils/logger';
 
+export interface UserRecordWithPassword extends User {
+  passwordHash: string;
+}
+
 // In-memory fallback mock users for dev/testing when Supabase table isn't created yet
-const mockUsersStore: User[] = [
+const mockUsersStore: UserRecordWithPassword[] = [
   {
     id: 'usr_admin_001',
-    email: 'admin@campusos.edu',
-    name: 'System Admin',
+    email: 'admin@campus.edu',
+    name: 'Campus Administrator',
+    passwordHash: bcrypt.hashSync('admin123', 10),
     role: UserRole.ADMIN,
     status: UserStatus.ACTIVE,
     avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
@@ -17,9 +23,32 @@ const mockUsersStore: User[] = [
     updatedAt: new Date().toISOString()
   },
   {
+    id: 'usr_admin_002',
+    email: 'admin@campusos.edu',
+    name: 'System Admin',
+    passwordHash: bcrypt.hashSync('admin123', 10),
+    role: UserRole.ADMIN,
+    status: UserStatus.ACTIVE,
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'usr_student_001',
+    email: 'student@campus.edu',
+    name: 'Rahim Ahmed',
+    passwordHash: bcrypt.hashSync('student123', 10),
+    role: UserRole.USER,
+    status: UserStatus.ACTIVE,
+    avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
     id: 'usr_student_002',
     email: 'alex.dev@campusos.edu',
     name: 'Alex Johnson',
+    passwordHash: bcrypt.hashSync('student123', 10),
     role: UserRole.USER,
     status: UserStatus.ACTIVE,
     avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150',
@@ -38,17 +67,17 @@ export class UserService {
 
       if (error) {
         logger.warn('Supabase query fallback to in-memory store:', error.message);
-        return [...mockUsersStore];
+        return mockUsersStore.map(({ passwordHash: _, ...u }) => u);
       }
 
       if (!data || data.length === 0) {
-        return [...mockUsersStore];
+        return mockUsersStore.map(({ passwordHash: _, ...u }) => u);
       }
 
       return (data as UserDbRow[]).map(mapUserRowToEntity);
     } catch (err) {
       logger.warn('Error fetching users from Supabase, using mock store:', err);
-      return [...mockUsersStore];
+      return mockUsersStore.map(({ passwordHash: _, ...u }) => u);
     }
   }
 
@@ -58,49 +87,103 @@ export class UserService {
         .from('users')
         .select('*')
         .eq('id', id)
-        .single();
+        .maybeSingle();
 
       if (error || !data) {
         const found = mockUsersStore.find((u) => u.id === id);
-        return found || null;
+        if (found) {
+          const { passwordHash: _, ...user } = found;
+          return user;
+        }
+        return null;
       }
 
       return mapUserRowToEntity(data as UserDbRow);
     } catch (err) {
       const found = mockUsersStore.find((u) => u.id === id);
-      return found || null;
+      if (found) {
+        const { passwordHash: _, ...user } = found;
+        return user;
+      }
+      return null;
     }
   }
 
   async getUserByEmail(email: string): Promise<User | null> {
+    const normalizedEmail = email.toLowerCase().trim();
     try {
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('email', email.toLowerCase())
-        .single();
+        .eq('email', normalizedEmail)
+        .maybeSingle();
 
       if (error || !data) {
-        const found = mockUsersStore.find((u) => u.email.toLowerCase() === email.toLowerCase());
-        return found || null;
+        const found = mockUsersStore.find((u) => u.email.toLowerCase() === normalizedEmail);
+        if (found) {
+          const { passwordHash: _, ...user } = found;
+          return user;
+        }
+        return null;
       }
 
       return mapUserRowToEntity(data as UserDbRow);
     } catch (err) {
-      const found = mockUsersStore.find((u) => u.email.toLowerCase() === email.toLowerCase());
-      return found || null;
+      const found = mockUsersStore.find((u) => u.email.toLowerCase() === normalizedEmail);
+      if (found) {
+        const { passwordHash: _, ...user } = found;
+        return user;
+      }
+      return null;
     }
   }
 
-  async createUser(dto: CreateUserDto): Promise<User> {
-    const existing = await this.getUserByEmail(dto.email);
+  async getUserByEmailWithPassword(email: string): Promise<(User & { passwordHash: string }) | null> {
+    const normalizedEmail = email.toLowerCase().trim();
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', normalizedEmail)
+        .maybeSingle();
+
+      if (error || !data) {
+        const found = mockUsersStore.find((u) => u.email.toLowerCase() === normalizedEmail);
+        if (found) {
+          return { ...found };
+        }
+        return null;
+      }
+
+      const row = data as UserDbRow;
+      const user = mapUserRowToEntity(row);
+      return {
+        ...user,
+        passwordHash: row.password_hash || ''
+      };
+    } catch (err) {
+      const found = mockUsersStore.find((u) => u.email.toLowerCase() === normalizedEmail);
+      if (found) {
+        return { ...found };
+      }
+      return null;
+    }
+  }
+
+  async createUser(dto: CreateUserDto & { passwordHash?: string }): Promise<User> {
+    const normalizedEmail = dto.email.toLowerCase().trim();
+    const existing = await this.getUserByEmail(normalizedEmail);
     if (existing) {
       throw ApiError.conflict(`User with email ${dto.email} already exists`);
     }
 
+    const passwordHash =
+      dto.passwordHash ||
+      (dto.password ? await bcrypt.hash(dto.password, 12) : await bcrypt.hash('password123', 12));
+
     const newUser: User = {
-      id: `usr_${Date.now()}`,
-      email: dto.email.toLowerCase(),
+      id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      email: normalizedEmail,
       name: dto.name,
       role: dto.role || UserRole.USER,
       status: UserStatus.ACTIVE,
@@ -115,6 +198,7 @@ export class UserService {
           id: newUser.id,
           email: newUser.email,
           name: newUser.name,
+          password_hash: passwordHash,
           role: newUser.role,
           status: newUser.status
         })
@@ -123,13 +207,13 @@ export class UserService {
 
       if (error || !data) {
         logger.warn('Failed to insert into Supabase, storing in memory:', error?.message);
-        mockUsersStore.push(newUser);
+        mockUsersStore.push({ ...newUser, passwordHash });
         return newUser;
       }
 
       return mapUserRowToEntity(data as UserDbRow);
     } catch (err) {
-      mockUsersStore.push(newUser);
+      mockUsersStore.push({ ...newUser, passwordHash });
       return newUser;
     }
   }
@@ -143,7 +227,7 @@ export class UserService {
     const updatedUser: User = {
       ...user,
       ...(dto.name && { name: dto.name }),
-      ...(dto.email && { email: dto.email.toLowerCase() }),
+      ...(dto.email && { email: dto.email.toLowerCase().trim() }),
       ...(dto.role && { role: dto.role }),
       ...(dto.status && { status: dto.status }),
       ...(dto.avatarUrl && { avatarUrl: dto.avatarUrl }),
@@ -167,14 +251,14 @@ export class UserService {
 
       if (error || !data) {
         const idx = mockUsersStore.findIndex((u) => u.id === id);
-        if (idx !== -1) mockUsersStore[idx] = updatedUser;
+        if (idx !== -1) mockUsersStore[idx] = { ...mockUsersStore[idx], ...updatedUser };
         return updatedUser;
       }
 
       return mapUserRowToEntity(data as UserDbRow);
     } catch (err) {
       const idx = mockUsersStore.findIndex((u) => u.id === id);
-      if (idx !== -1) mockUsersStore[idx] = updatedUser;
+      if (idx !== -1) mockUsersStore[idx] = { ...mockUsersStore[idx], ...updatedUser };
       return updatedUser;
     }
   }

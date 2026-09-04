@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 
 interface RoleGuardProps {
@@ -7,8 +7,18 @@ interface RoleGuardProps {
   requiredRole?: 'ADMIN' | 'USER';
 }
 
-export const RoleGuard: React.FC<RoleGuardProps> = ({ children }) => {
-  // Allow direct viewing of all pages without redirecting to login
+export const RoleGuard: React.FC<RoleGuardProps> = ({ children, requiredRole }) => {
+  const { isAuthenticated, user } = useAuth();
+  const location = useLocation();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (requiredRole && user?.role !== requiredRole) {
+    return <Navigate to={user?.role === 'ADMIN' ? '/admin' : '/app'} replace />;
+  }
+
   return <>{children}</>;
 };
 
@@ -16,7 +26,7 @@ export const SmartRedirect: React.FC = () => {
   const { isAuthenticated, isAdmin } = useAuth();
 
   if (!isAuthenticated) {
-    return <Navigate to="/admin" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   return <Navigate to={isAdmin ? '/admin' : '/app'} replace />;

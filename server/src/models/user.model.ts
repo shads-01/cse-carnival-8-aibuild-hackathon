@@ -4,6 +4,7 @@ export interface UserDbRow {
   id: string;
   email: string;
   name: string;
+  password_hash?: string;
   role: string;
   status: string;
   avatar_url?: string;

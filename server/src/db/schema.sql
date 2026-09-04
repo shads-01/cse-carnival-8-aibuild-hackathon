@@ -139,3 +139,22 @@ create table if not exists assignments (
 create index if not exists idx_assignments_course on assignments (course);
 create index if not exists idx_assignments_status on assignments (status);
 create index if not exists idx_assignments_deadline on assignments (deadline);
+
+-- ============================================================================
+-- 8. users — Authentication & User Profiles
+-- ============================================================================
+create table if not exists users (
+  id            text primary key,
+  email         text not null unique,
+  name          text not null,
+  password_hash text not null,
+  role          text not null default 'USER' check (role in ('ADMIN', 'USER', 'MODERATOR')),
+  status        text not null default 'ACTIVE' check (status in ('ACTIVE', 'INACTIVE', 'PENDING', 'SUSPENDED')),
+  avatar_url    text,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+
+create index if not exists idx_users_email on users (email);
+create index if not exists idx_users_role  on users (role);
+
