@@ -4,9 +4,12 @@ Claude Code-specific orientation for this repo. See [`AGENTS.md`](./AGENTS.md) f
 architecture rule and conventions that apply to any agent, [`ARCHITECTURE.md`](./ARCHITECTURE.md)
 for the full system design (data model, REST/tool contracts, a request-lifecycle trace), and
 [`PLAN.md`](./PLAN.md) for the time-boxed build order and rationale. Read all three before
-making non-trivial changes here — **as of now nothing is scaffolded** (no `backend/` or
-`frontend/` directory exists yet); see `ARCHITECTURE.md`'s status banner before assuming
-otherwise.
+making non-trivial changes here — **the directory layout is `client/` + `server/` +
+`shared/` (npm workspaces), not `backend/`/`frontend/` as originally planned** (a teammate's
+push landed the workspace scaffold with generic auth/user boilerplate; the team decided
+2026-09-04 to build the CampusOS domain into it rather than restart). See
+`ARCHITECTURE.md`'s [status banner](./ARCHITECTURE.md#status-as-of-this-writing--read-this-first)
+and [Open decisions](./ARCHITECTURE.md#open-decisions--risks) before assuming otherwise.
 
 ## Context
 
@@ -19,15 +22,18 @@ ask/refuse judgment).
 
 ## Stack
 
-Express + TypeScript (backend) · React + Vite + TypeScript + Tailwind/shadcn (frontend) ·
-Supabase/Postgres (database, backend-only access via service-role key) · Google Gemini
-via native function calling (agent). Provider is swappable — see `backend/src/agent/llmClient.ts`.
+Express + TypeScript in `server/` · React + Vite + TypeScript in `client/` (hand-rolled CSS
+components, Axios + Zustand — not Tailwind/shadcn, see `ARCHITECTURE.md`'s Open decisions) ·
+`shared/` for cross-workspace types (`@shared/types`) · Supabase/Postgres (database,
+backend-only access via service-role key) · Google Gemini via native function calling
+(agent), Google GenAI SDK (`@google/genai`). Provider is swappable — see
+`server/src/agent/llmClient.ts` (not yet written).
 
-## Commands (once scaffolded — see PLAN.md Phase 0-1)
+## Commands (workspace scaffold exists; services/routes/agent below are Phase 1+)
 
 ```bash
-cd backend && npm install && npm run seed && npm run dev    # API on $PORT
-cd frontend && npm install && npm run dev                    # Vite dev server
+npm install       # from repo root — installs shared, server, client workspaces
+npm run dev        # runs server (:5000, /api/v1/...) + client (:5173) concurrently
 ```
 
 No test runner is planned given the time budget — verification is the manual walk-through
@@ -52,7 +58,7 @@ section **and** the matching table in [`ARCHITECTURE.md`](./ARCHITECTURE.md#buil
 so the next session (agent or human) knows where things actually stand rather than
 re-deriving it from a stale plan doc:
 
-- [ ] Phase 0 — Supabase project + scaffolding
+- [x] Phase 0 — Supabase project + scaffolding (workspace scaffold + `schema.sql` landed 2026-09-04, differently than planned — see `ARCHITECTURE.md` Open decisions)
 - [ ] Phase 1 — services/ data layer + seed script
 - [ ] Phase 2 — REST routes
 - [ ] Phase 3 — Dashboard UI

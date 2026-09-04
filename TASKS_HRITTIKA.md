@@ -6,6 +6,14 @@ Deadline: **8:30 PM, 4 September**. Full detail: [`tasks.md`](./tasks.md) · [`P
 
 You own: tool calling, LLM integration (**Google Gemini**, native function calling), chat UI. Build tool handlers against the agreed service signatures, stubbing data calls until Arko's services are live.
 
+> **2026-09-04 update:** paths below now live under `server/src/agent/` and
+> `client/src/features/campus/` (npm workspace `server`/`client`, not `backend`/`frontend`)
+> — see `ARCHITECTURE.md`'s [Target directory layout](./ARCHITECTURE.md#target-directory-layout)
+> and [Open decisions](./ARCHITECTURE.md#open-decisions--risks). Also: your tool handlers and
+> `ChatPanel.tsx` will import domain types from `@shared/types` — that package doesn't have
+> `Schedule`/`Room`/`Event`/etc. yet, so check `tasks.md`'s Shared contract section before
+> writing real (non-mocked) code against them.
+
 ## Initial setup — my part (do first, ~15 min, with Arko + Shads)
 - [ ] Drive the shared-contract conversation: confirm the DB schema (7 tables — `schema/schema.md`), REST endpoint shapes, and the 9 agent tool signatures below
 - [x] ~~Draft the initial `db/schema.sql` (7 tables + FKs: `schedules`, `rooms`, `bookings`, `events`, `event_registrations`, `announcements`, `assignments`) for Arko to review and build `services/*.ts` against~~
@@ -15,15 +23,15 @@ You own: tool calling, LLM integration (**Google Gemini**, native function calli
 - [ ] Confirm the non-negotiable rule with both: agent tools call `services/*.ts`, never Supabase directly
 
 ## Agent tool contract (confirm with Arko before he builds services)
-`get_schedule`, `get_assignments`, `get_events`, `get_announcements`, `find_available_rooms(date, start, end, min_capacity?, equipment?)`, `book_room(room_id, date, start, end, booked_by, purpose)`, `cancel_booking(booking_id)`, `register_for_event(event_id, student_id, name)`, `cancel_registration(event_id, student_id)`
+`get_schedule`, `get_assignments`, `get_events`, `get_announcements`, `find_available_rooms(date, start_time, end_time, min_capacity?, equipment?)`, `book_room(room_id, date, start_time, end_time, booked_by, purpose)`, `cancel_booking(booking_id, booked_by)`, `register_for_event(event_id, student_id, name)`, `cancel_registration(event_id, student_id)`
 
 ## Your build
-- [ ] `agent/systemPrompt.ts` — identity + 4 behavior rules: never answer from memory (always call a read tool), ask on a missing required parameter, refuse when unauthorized or no tool matches, confirm before a destructive/irreversible action
-- [ ] `agent/llmClient.ts` — Gemini wrapper (`@google/generative-ai`), kept swappable
-- [ ] `agent/runAgent.ts` — the tool-use loop
-- [ ] `agent/tools.ts` — the 9 tool schemas + handlers, calling `services/*.ts` (stub these until Arko's are live)
-- [ ] `routes/agent.ts` — `POST /api/agent/chat`
-- [ ] `ChatPanel.tsx` — message list + input, calls `/api/agent/chat`
+- [ ] `server/src/agent/systemPrompt.ts` — identity + 4 behavior rules: never answer from memory (always call a read tool), ask on a missing required parameter, refuse when unauthorized or no tool matches, confirm before a destructive/irreversible action
+- [ ] `server/src/agent/llmClient.ts` — Google GenAI SDK (`@google/genai`) wrapper, kept swappable
+- [ ] `server/src/agent/runAgent.ts` — the tool-use loop
+- [ ] `server/src/agent/tools.ts` — the 9 tool schemas + handlers, calling `services/*.ts` (stub these until Arko's are live)
+- [ ] `server/src/routes/v1/agent.routes.ts` + `agent.controller.ts` — `POST /api/v1/agent/chat`
+- [ ] `client/src/features/campus/ChatPanel.tsx` — message list + input, calls `/api/v1/agent/chat`, refetches the matching `campusStore` (Zustand) slices named in the response's `mutated` field
 - [ ] Tool handlers return structured errors (`{ error: "..." }`), never a raw exception into the LLM loop
 
 ## Verify before integration
