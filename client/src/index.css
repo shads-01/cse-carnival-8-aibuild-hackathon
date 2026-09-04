@@ -159,6 +159,22 @@ a {
 
 button, input, select, textarea {
   font-family: inherit;
+  color: var(--text-primary);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--text-dim);
+  opacity: 0.75;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--text-primary) !important;
+  -webkit-box-shadow: 0 0 0px 1000px var(--bg-surface) inset !important;
+  transition: background-color 5000s ease-in-out 0s;
 }
 
 /* ── Liquid Glass Primitives ── */
@@ -214,11 +230,12 @@ button, input, select, textarea {
 }
 
 .glass-input {
-  background: var(--glass-bg);
+  background: var(--bg-surface);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--glass-border);
   color: var(--text-primary);
+  caret-color: var(--accent);
   border-radius: var(--radius-md);
   padding: 0.65rem 1rem;
   font-size: 0.95rem;
@@ -229,10 +246,17 @@ button, input, select, textarea {
 .glass-input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-muted);
+  color: var(--text-primary);
 }
 
 .glass-input::placeholder {
   color: var(--text-dim);
+  opacity: 0.75;
+}
+
+.glass-input option {
+  background: var(--bg-surface);
+  color: var(--text-primary);
 }
 
 /* ── Typography & Gradients ── */
@@ -262,6 +286,11 @@ button, input, select, textarea {
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
 }
 
 @keyframes bellRing {

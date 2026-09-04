@@ -130,18 +130,28 @@ export const AdminLayout: React.FC = () => {
         </header>
 
         {/* Page Content */}
-        <main
-          style={{
-            flex: 1,
-            padding: '1.75rem 1.5rem',
-            maxWidth: '1440px',
-            width: '100%',
-            margin: '0 auto',
-            animation: 'fadeIn 0.25s ease'
-          }}
-        >
-          <Outlet />
-        </main>
+        {(() => {
+          const isChat = location.pathname.startsWith('/admin/chat');
+          return (
+            <main
+              style={{
+                flex: 1,
+                padding: isChat ? 0 : '1.75rem 1.5rem',
+                maxWidth: isChat ? '100%' : '1440px',
+                width: '100%',
+                margin: isChat ? 0 : '0 auto',
+                animation: 'fadeIn 0.25s ease',
+                display: isChat ? 'flex' : 'block',
+                flexDirection: isChat ? 'column' : undefined,
+                height: isChat ? 'calc(100vh - 68px)' : undefined,
+                minHeight: 0,
+                overflow: isChat ? 'hidden' : undefined
+              }}
+            >
+              <Outlet />
+            </main>
+          );
+        })()}
       </div>
 
       <style>{`
