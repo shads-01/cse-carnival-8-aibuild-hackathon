@@ -242,6 +242,49 @@ button, input, select, textarea {
   -webkit-text-fill-color: transparent;
 }
 
+/* ── Interactive Hover & Press Micro-interactions ── */
+.glass-interactive {
+  cursor: pointer;
+  transition: transform var(--transition-fast), border-color var(--transition-normal), box-shadow var(--transition-normal), background var(--transition-normal);
+}
+
+.glass-interactive:hover {
+  transform: translateY(-2px);
+  border-color: var(--glass-border-hover);
+  box-shadow: var(--shadow-elevated), var(--shadow-glow);
+}
+
+.glass-interactive:active {
+  transform: translateY(0px) scale(0.985);
+}
+
+.btn-interactive {
+  cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), filter var(--transition-fast), opacity var(--transition-fast);
+}
+
+.btn-interactive:hover:not(:disabled) {
+  transform: translateY(-1.5px);
+  filter: brightness(1.08);
+}
+
+.btn-interactive:active:not(:disabled) {
+  transform: translateY(1px) scale(0.975);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-interactive,
+  .glass-interactive:hover,
+  .glass-interactive:active,
+  .btn-interactive,
+  .btn-interactive:hover,
+  .btn-interactive:active,
+  .glass-card:hover {
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
 /* ── Micro-interaction Animations ── */
 @keyframes fadeSlideUp {
   from {

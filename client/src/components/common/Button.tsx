@@ -85,7 +85,7 @@ export const Button: React.FC<ButtonProps> = ({
         ...sizeStyles[size]
       }}
       disabled={disabled || isLoading}
-      className={`btn-${variant} ${className}`}
+      className={`btn-${variant} btn-interactive ${className}`}
       {...props}
     >
       {isLoading ? (
