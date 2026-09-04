@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../common/Button';
 import { agentService, ChatMessage } from '../../services/agentService';
-import { Send, Bot, User, Sparkles, Terminal, ArrowRight, CornerDownLeft } from 'lucide-react';
+import { Send, Bot, User, Sparkles, Terminal, ArrowRight, ArrowLeft, CornerDownLeft } from 'lucide-react';
 
 const QUICK_PROMPTS = [
   'When is my next class?',
@@ -14,7 +15,11 @@ const QUICK_PROMPTS = [
   'Register me for the Guest Lecture on Deep Learning.'
 ];
 
-export const ChatPanel: React.FC<{ initialPrompt?: string }> = ({ initialPrompt }) => {
+export const ChatPanel: React.FC<{ initialPrompt?: string; fullScreen?: boolean }> = ({
+  initialPrompt,
+  fullScreen = true
+}) => {
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'msg-welcome',
@@ -86,35 +91,69 @@ export const ChatPanel: React.FC<{ initialPrompt?: string }> = ({ initialPrompt 
 
   return (
     <div
-      className="glass-elevated"
+      className={fullScreen ? '' : 'glass-elevated'}
       style={{
         display: 'flex',
         flexDirection: 'column',
-        height: 'calc(100vh - 140px)',
-        minHeight: '520px',
-        maxHeight: '820px',
-        borderRadius: 'var(--radius-xl)',
+        height: '100%',
+        width: '100%',
+        flex: 1,
+        minHeight: 0,
+        borderRadius: fullScreen ? 0 : 'var(--radius-xl)',
         overflow: 'hidden',
-        border: '1px solid var(--glass-border-hover)'
+        border: fullScreen ? 'none' : '1px solid var(--glass-border-hover)'
       }}
     >
       {/* Chat Header */}
       <div
         style={{
-          padding: '12px 18px',
+          padding: '6px 14px',
+          minHeight: '42px',
           borderBottom: '1px solid var(--glass-border)',
           background: 'var(--glass-bg-hover)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between'
+          justifyContent: 'space-between',
+          gap: '8px'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate('/app');
+              }
+            }}
+            className="glass"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '4px 8px',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-secondary)',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              border: '1px solid var(--glass-border)',
+              background: 'var(--glass-bg)',
+              transition: 'all var(--transition-fast)'
+            }}
+            title="Go back"
+            aria-label="Go back"
+          >
+            <ArrowLeft size={13} />
+            <span>Back</span>
+          </button>
+
           <div
             style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: 'var(--radius-md)',
+              width: '24px',
+              height: '24px',
+              borderRadius: 'var(--radius-sm)',
               background: 'var(--accent-gradient)',
               display: 'flex',
               alignItems: 'center',
@@ -123,43 +162,43 @@ export const ChatPanel: React.FC<{ initialPrompt?: string }> = ({ initialPrompt 
               boxShadow: 'var(--shadow-glow)'
             }}
           >
-            <Bot size={20} />
+            <Bot size={14} />
           </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                CampusOS AI Assistant
-              </span>
-              <span
-                style={{
-                  width: '7px',
-                  height: '7px',
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--success)',
-                  boxShadow: '0 0 6px var(--success)',
-                  display: 'inline-block'
-                }}
-              />
-            </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-              Live Data Tool-Use Loop · Multi-Source Grounded
-            </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+              CampusOS Agent
+            </span>
+            <span
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                backgroundColor: 'var(--success)',
+                boxShadow: '0 0 5px var(--success)',
+                display: 'inline-block'
+              }}
+              title="Online & Ready"
+            />
+            <span style={{ fontSize: '0.70rem', color: 'var(--text-dim)', marginLeft: '2px' }}>
+              · Live Data
+            </span>
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span
             style={{
-              fontSize: '0.72rem',
-              padding: '3px 8px',
+              fontSize: '0.66rem',
+              padding: '2px 6px',
               borderRadius: 'var(--radius-full)',
-              background: 'rgba(0, 180, 216, 0.12)',
+              background: 'rgba(0, 180, 216, 0.1)',
               color: 'var(--accent)',
-              border: '1px solid var(--glass-border)',
-              fontWeight: 700
+              border: '1px solid var(--glass-border-subtle)',
+              fontWeight: 600
             }}
           >
-            Agent v4.0 Active
+            v4.0
           </span>
         </div>
       </div>
