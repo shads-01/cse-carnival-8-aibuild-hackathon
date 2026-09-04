@@ -17,6 +17,7 @@
     "build:server": "npm run build --workspace=server",
     "build:client": "npm run build --workspace=client",
     "start:server": "npm run start --workspace=server",
+    "seed": "npm run seed --workspace=server",
     "test": "npm run test --workspace=server",
     "lint": "echo \"Linting complete\""
   },

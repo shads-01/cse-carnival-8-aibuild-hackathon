@@ -29,40 +29,40 @@ Nobody else touches these files.
 
 - [x] ~~Agree DB schema: 7 tables + FKs~~ — see `schema/schema.md`, applied to Supabase
 - [ ] Add `notifications` table schema: `id, user_id, type, title, body, link, read, created_at`
-- [ ] Confirm all REST endpoints are under `/api/v1/*`
-- [ ] Share `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` + `SUPABASE_ANON_KEY`
-- [ ] Confirm agent tool contract (9 tools — see `tasks.md`)
+- [x] ~~Confirm all REST endpoints are under `/api/v1/*`~~
+- [x] ~~Share `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` + `SUPABASE_ANON_KEY`~~
+- [x] ~~Confirm agent tool contract (9 tools — see `tasks.md`)~~
 
 ## Your build
 
 ### Schema & Seed
 - [x] ~~`server/src/db/schema.sql` — 7 tables + FKs: `schedules`, `rooms`, `bookings`, `events`, `event_registrations`, `announcements`, `assignments`~~ — drafted, applied to Supabase, verified live
 - [ ] `schema.sql` update — add `notifications` table and `status`/`requester_id` to `bookings`
-- [ ] `server/src/db/seed.ts` — load `data/*.json`, split embedded `bookings`/`registrations` arrays into join tables, upsert on `id` (safe to re-run)
+- [x] ~~`server/src/db/seed.ts` — load `data/*.json`, split embedded `bookings`/`registrations` arrays into join tables, upsert on `id` (safe to re-run)~~
 
 ### Services (the ONLY layer that talks to Supabase)
-- [ ] `server/src/services/scheduleService.ts` — full CRUD
-- [ ] `server/src/services/roomService.ts` — CRUD + `findAvailable()`, `book()` (creates booking with `status: 'pending'` or `'confirmed'` if admin, overlap check), `cancelBooking()`
-- [ ] `server/src/services/eventService.ts` — CRUD + `register()` (capacity check), `cancelRegistration()`
-- [ ] `server/src/services/announcementService.ts` — full CRUD
-- [ ] `server/src/services/assignmentService.ts` — full CRUD
+- [x] ~~`server/src/services/scheduleService.ts`~~ — full CRUD, filtering by course/day/room/instructor/section
+- [x] ~~`server/src/services/roomService.ts` — + `findAvailable()`, `book()`, `cancelBooking()` (overlap check lives here)~~
+- [x] ~~`server/src/services/eventService.ts` — + `register()`, `cancelRegistration()` (capacity check lives here)~~
+- [x] ~~`server/src/services/announcementService.ts`~~ — full CRUD, priority & expiration filtering
+- [x] ~~`server/src/services/assignmentService.ts`~~ — full CRUD, deadline & status filtering
 - [ ] `server/src/services/requestService.ts` — **NEW:** get pending bookings, approve (→ `confirmed` + create notification for requester, re-check conflict at approve time), reject (→ `rejected` + notification with reason)
 - [ ] `server/src/services/notificationService.ts` — **NEW:** create, getByUser, markRead, markAllRead
 
 ### Controllers & Routes (thin controllers over services, all under `/api/v1/`)
 - [x] ~~Express scaffold: `app.ts`/`server.ts`, CORS, JSON body parsing, error middleware~~ — already exists from the workspace push
-- [ ] `server/src/routes/v1/schedule.routes.ts` + `schedule.controller.ts` — GET/POST/PUT/DELETE
-- [ ] `server/src/routes/v1/room.routes.ts` + `room.controller.ts` — GET/POST/PUT/DELETE + `POST /:id/book`, `DELETE /bookings/:id`
-- [ ] `server/src/routes/v1/event.routes.ts` + `event.controller.ts` — GET/POST/PUT/DELETE + `POST /:id/register`, `DELETE /registrations/:id`
-- [ ] `server/src/routes/v1/announcement.routes.ts` + `announcement.controller.ts` — GET/POST/PUT/DELETE
-- [ ] `server/src/routes/v1/assignment.routes.ts` + `assignment.controller.ts` — GET/POST/PUT/DELETE
+- [x] ~~`server/src/routes/v1/schedule.routes.ts` + `schedule.controller.ts` — GET/POST/PUT/DELETE~~
+- [x] ~~`server/src/routes/v1/room.routes.ts` + `room.controller.ts` — GET/POST/PUT/DELETE + `POST /:id/book`, `DELETE /bookings/:id`~~
+- [x] ~~`server/src/routes/v1/event.routes.ts` + `event.controller.ts` — GET/POST/PUT/DELETE + `POST /:id/register`, `DELETE /registrations/:id`~~
+- [x] ~~`server/src/routes/v1/announcement.routes.ts` + `announcement.controller.ts` — GET/POST/PUT/DELETE~~
+- [x] ~~`server/src/routes/v1/assignment.routes.ts` + `assignment.controller.ts` — GET/POST/PUT/DELETE~~
 - [ ] `server/src/routes/v1/request.routes.ts` + `request.controller.ts` — **NEW:** `GET /requests`, `POST /requests/:id/approve`, `POST /requests/:id/reject`
 - [ ] `server/src/routes/v1/notification.routes.ts` + `notification.controller.ts` — **NEW:** `GET /notifications`, `PUT /notifications/:id/read`, `PUT /notifications/read-all`
 
 ### Booking overlap + capacity checks
-- [ ] Booking overlap check lives in `roomService.book()` — `WHERE room_id = ? AND date = ? AND start_time < ? AND end_time > ? AND status IN ('pending', 'confirmed')`
-- [ ] Event capacity check lives in `eventService.register()` — count registrations vs capacity
-- [ ] Both return structured errors (not exceptions) so the agent gets clean signals
+- [x] ~~Booking overlap check lives in `roomService.book()` — `WHERE room_id = ? AND date = ? AND start_time < ? AND end_time > ? AND status IN ('pending', 'confirmed')`~~
+- [x] ~~Event capacity check lives in `eventService.register()` — count registrations vs capacity~~
+- [x] ~~Both return structured errors (not exceptions) so the agent gets clean signals~~
 
 ## Non-negotiable rule
 
@@ -72,7 +72,7 @@ true by construction.
 
 ## Verify before integration
 
-- [ ] Curl/Postman every endpoint against seeded data
+- [x] ~~Curl/Postman/automated test suite against seeded data (Automated Vitest integration test suite passing 35/35 tests)~~
 - [ ] Supabase Auth: test login, signup (OTP), Google OAuth, password reset via Postman
 - [ ] Booking conflict: try to book an overlapping slot → get a clean error
 - [ ] Event capacity: register when full → get a clean error

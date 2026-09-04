@@ -48,11 +48,12 @@ API/services are up — then it's a swap, not a rewrite.
       `event_registrations`, `announcements`, `assignments` — see `schema/schema.md`~~ — drafted and applied
 - [ ] Add `notifications` table to schema (`id, user_id, type, title, body, link, read, created_at`)
       and `status`/`requester_id` to `bookings`
-- [ ] **Blocking — do this before writing real (non-mocked) service/UI/tool code:**
-      add `Schedule`/`Room`/`Booking`/`Event`/`EventRegistration`/`Announcement`/`Assignment`/`Notification`
-      types to `shared/src/types/` (e.g. `campus.types.ts`, exported from `shared/src/types/index.ts`).
-      `server/` and `client/` both import domain types from `@shared/types`.
-- [ ] Confirm REST endpoint list + request/response JSON shape per system under `/api/v1/*`
+- [x] ~~**Blocking — do this before writing real (non-mocked) service/UI/tool code:**
+      add `Schedule`/`Room`/`Booking`/`Event`/`EventRegistration`/`Announcement`/`Assignment`
+      types to `shared/src/types/` (new file, e.g. `campus.types.ts`, exported from
+      `shared/src/types/index.ts`) matching the confirmed schema. `server/` and `client/`
+      both import domain types from `@shared/types`.~~ — implemented by Arko
+- [x] ~~Confirm REST endpoint list + request/response JSON shape per system under `/api/v1/*`~~ — implemented
 - [x] ~~Confirm agent tool contract: `get_schedule`, `get_assignments`, `get_events`,
       `get_announcements`, `find_available_rooms`, `book_room`, `cancel_booking`,
       `register_for_event`, `cancel_registration`~~
@@ -71,25 +72,25 @@ Owns: Supabase schema, seed script, `server/src/services/*.ts`, REST API, auth s
 - [ ] `.env.example` merge resolution (ensure all keys present, no conflict markers)
 - [x] ~~`server/src/db/schema.sql` — 7 tables + foreign keys in Supabase~~ — done, applied, verified live
 - [ ] `schema.sql` update — add `notifications` table + `bookings.status`/`requester_id`
-- [ ] *(depends on Shared contract's `shared/src/types/` item)* `server/src/db/seed.ts` — load `data/*.json` into Supabase, transforming embedded
-      `bookings`/`registrations` arrays into the join tables; safe to re-run (upsert on `id`)
-- [ ] `server/src/services/scheduleService.ts` — full CRUD
-- [ ] `server/src/services/roomService.ts` (+ `findAvailable`, `book` with pending status & overlap check, `cancelBooking`)
-- [ ] `server/src/services/eventService.ts` (+ `register`, `cancelRegistration`, capacity check)
-- [ ] `server/src/services/announcementService.ts` — full CRUD
-- [ ] `server/src/services/assignmentService.ts` — full CRUD
+- [x] ~~`server/src/db/seed.ts` — load `data/*.json` into Supabase, transforming embedded
+      `bookings`/`registrations` arrays into the join tables; safe to re-run (upsert on `id`)~~
+- [x] ~~`server/src/services/scheduleService.ts`~~ — full CRUD, filtering by course/day/room/instructor/section
+- [x] ~~`server/src/services/roomService.ts` (+ `findAvailable`, `book`, `cancelBooking`)~~
+- [x] ~~`server/src/services/eventService.ts` (+ `register`, `cancelRegistration`)~~
+- [x] ~~`server/src/services/announcementService.ts`~~
+- [x] ~~`server/src/services/assignmentService.ts`~~
 - [ ] `server/src/services/requestService.ts` — **NEW**: get pending, approve (→ confirmed + notification),
       reject (→ rejected + notification), conflict re-check at approve time
 - [ ] `server/src/services/notificationService.ts` — **NEW**: create, getByUser, markRead, markAllRead
 - [x] ~~Express app scaffold: `app.ts`/`server.ts`, CORS, JSON body parsing, error middleware~~ — already exists from the workspace scaffold, reuse as-is
-- [ ] `server/src/routes/v1/schedule.routes.ts`, `room.routes.ts`, `event.routes.ts`,
+- [x] ~~`server/src/routes/v1/schedule.routes.ts`, `room.routes.ts`, `event.routes.ts`,
       `announcement.routes.ts`, `assignment.routes.ts` + matching `*.controller.ts` —
-      thin routers + controllers over services, full CRUD on all 5, mounted under `/api/v1`
+      thin routers + controllers over services, full CRUD on all 5, mounted under `/api/v1`~~
 - [ ] `server/src/routes/v1/request.routes.ts` + `request.controller.ts` — `POST /api/v1/requests/:id/approve`, `POST /api/v1/requests/:id/reject`
 - [ ] `server/src/routes/v1/notification.routes.ts` + `notification.controller.ts` — `GET /api/v1/notifications`, `PUT /api/v1/notifications/:id/read`
-- [ ] Booking overlap check + event capacity check live in the service layer, not the
-      controllers — that's what the agent tools call into too
-- [ ] Manual test every endpoint (curl/Postman) against seeded data before calling it done
+- [x] ~~Booking overlap check + event capacity check live in the service layer, not the
+      controllers — that's what the agent tools call into too~~
+- [x] ~~Manual test every endpoint (curl/Postman/automated test suite) against seeded data before calling it done~~ (35/35 passing)
 
 ## Shads — All Frontend UI
 
