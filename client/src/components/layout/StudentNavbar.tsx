@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { NavLink, Link } from 'react-router-dom';
+import { NavLink, Link, useLocation } from 'react-router-dom';
 import {
   Home,
   Calendar,
@@ -21,6 +21,9 @@ import { ThemeToggle } from '../common/ThemeToggle';
 export const StudentNavbar: React.FC = () => {
   const { user, logout } = useAuth();
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const location = useLocation();
+  const linkRefs = useRef<(HTMLAnchorElement | null)[]>([]);
+  const [pillStyle, setPillStyle] = useState<{ left: number; width: number; opacity: number }>({ left: 0, width: 0, opacity: 0 });
 
   const studentLinks = [
     { to: '/app', label: 'Home', icon: Home, end: true },
@@ -31,6 +34,23 @@ export const StudentNavbar: React.FC = () => {
     { to: '/app/activity', label: 'My Activity', icon: Clock },
     { to: '/app/chat', label: 'AI Assistant', icon: Bot, isAgent: true }
   ];
+
+  useEffect(() => {
+    const activeIndex = studentLinks.findIndex(link => {
+      if (link.end) return location.pathname === link.to;
+      return location.pathname.startsWith(link.to);
+    });
+    if (activeIndex !== -1 && linkRefs.current[activeIndex]) {
+      const el = linkRefs.current[activeIndex]!;
+      setPillStyle({
+        left: el.offsetLeft,
+        width: el.offsetWidth,
+        opacity: 1
+      });
+    } else {
+      setPillStyle(prev => ({ ...prev, opacity: 0 }));
+    }
+  }, [location.pathname]);
 
   return (
     <>
@@ -81,34 +101,56 @@ export const StudentNavbar: React.FC = () => {
           </Link>
         </div>
 
-        {/* Desktop Navigation Links */}
+        {/* Desktop Navigation Links with Sliding Pill */}
         <nav
           style={{
+            position: 'relative',
             display: 'none',
             alignItems: 'center',
-            gap: '4px'
+            gap: '2px',
+            padding: '3px'
           }}
           className="student-desktop-nav"
         >
-          {studentLinks.map((link) => {
+          {/* Animated sliding indicator pill */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '3px',
+              bottom: '3px',
+              left: `${pillStyle.left}px`,
+              width: `${pillStyle.width}px`,
+              background: 'var(--accent-gradient)',
+              borderRadius: 'var(--radius-full)',
+              boxShadow: 'var(--shadow-glow)',
+              transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+              opacity: pillStyle.opacity,
+              pointerEvents: 'none',
+              zIndex: 0
+            }}
+          />
+
+          {studentLinks.map((link, idx) => {
             const Icon = link.icon;
             return (
               <NavLink
                 key={link.to}
+                ref={(el) => (linkRefs.current[idx] = el)}
                 to={link.to}
                 end={link.end}
                 style={({ isActive }) => ({
+                  position: 'relative',
+                  zIndex: 1,
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  padding: '6px 12px',
+                  padding: '6px 14px',
                   borderRadius: 'var(--radius-full)',
                   fontSize: '0.86rem',
                   fontWeight: isActive ? 700 : 500,
                   color: isActive ? '#ffffff' : 'var(--text-secondary)',
-                  background: isActive ? 'var(--accent-gradient)' : 'transparent',
-                  boxShadow: isActive ? 'var(--shadow-glow)' : 'none',
-                  transition: 'all var(--transition-fast)'
+                  background: 'transparent',
+                  transition: 'color var(--transition-fast)'
                 })}
               >
                 <Icon size={16} />
@@ -120,7 +162,7 @@ export const StudentNavbar: React.FC = () => {
                       fontWeight: 800,
                       padding: '1px 5px',
                       borderRadius: 'var(--radius-full)',
-                      background: 'rgba(0, 180, 216, 0.25)',
+                      background: 'rgba(255, 255, 255, 0.25)',
                       color: '#ffffff'
                     }}
                   >

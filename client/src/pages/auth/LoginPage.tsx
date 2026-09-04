@@ -73,18 +73,38 @@ export const LoginPage: React.FC = () => {
 
   return (
     <Card className="animate-slide-up" variant="elevated" style={{ width: '100%' }}>
-      {/* Role Selector Tabs */}
+      {/* Role Selector Tabs with Sliding Pill */}
       <div
         className="glass"
         style={{
+          position: 'relative',
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
           padding: '4px',
           borderRadius: 'var(--radius-md)',
           marginBottom: '1rem',
-          border: '1px solid var(--glass-border)'
+          border: '1px solid var(--glass-border)',
+          overflow: 'hidden'
         }}
       >
+        {/* Animated sliding indicator pill */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '4px',
+            bottom: '4px',
+            left: '4px',
+            width: 'calc(50% - 4px)',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--accent-gradient)',
+            boxShadow: 'var(--shadow-glow)',
+            transform: roleTab === 'student' ? 'translateX(0%)' : 'translateX(100%)',
+            transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+            pointerEvents: 'none',
+            zIndex: 0
+          }}
+        />
+
         <button
           type="button"
           onClick={() => {
@@ -93,6 +113,8 @@ export const LoginPage: React.FC = () => {
             setError(null);
           }}
           style={{
+            position: 'relative',
+            zIndex: 1,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -104,9 +126,8 @@ export const LoginPage: React.FC = () => {
             fontWeight: 700,
             cursor: 'pointer',
             color: roleTab === 'student' ? '#ffffff' : 'var(--text-secondary)',
-            background: roleTab === 'student' ? 'var(--accent-gradient)' : 'transparent',
-            boxShadow: roleTab === 'student' ? 'var(--shadow-glow)' : 'none',
-            transition: 'all var(--transition-fast)'
+            background: 'transparent',
+            transition: 'color var(--transition-fast)'
           }}
         >
           <GraduationCap size={16} />
@@ -121,6 +142,8 @@ export const LoginPage: React.FC = () => {
             setError(null);
           }}
           style={{
+            position: 'relative',
+            zIndex: 1,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -132,9 +155,8 @@ export const LoginPage: React.FC = () => {
             fontWeight: 700,
             cursor: 'pointer',
             color: roleTab === 'admin' ? '#ffffff' : 'var(--text-secondary)',
-            background: roleTab === 'admin' ? 'var(--accent-gradient)' : 'transparent',
-            boxShadow: roleTab === 'admin' ? 'var(--shadow-glow)' : 'none',
-            transition: 'all var(--transition-fast)'
+            background: 'transparent',
+            transition: 'color var(--transition-fast)'
           }}
         >
           <ShieldAlert size={16} />
