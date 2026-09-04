@@ -9,6 +9,12 @@ import {
 } from '@shared/types';
 import { ApiError } from '../utils/apiResponse';
 import { logger } from '../utils/logger';
+import {
+  normalizeAndValidateTimeRange,
+  parseToUtcDate,
+  doTimeRangesOverlap,
+  NormalizedTimeRange
+} from '../utils/timeUtils';
 
 export class RoomService {
   async list(filter?: { status?: string; type?: string; min_capacity?: number }): Promise<Room[]> {
@@ -29,19 +35,20 @@ export class RoomService {
         }
       }
 
-      query = query.order('room_number', { ascending: true });
-
-      const { data, error } = await query;
+      const { data, error } = await query.order('room_number', { ascending: true });
 
       if (error) {
-        logger.error('Error fetching rooms:', error.message);
-        throw ApiError.internal(`Failed to fetch rooms: ${error.message}`);
+        logger.error('Error listing rooms from Supabase:', error.message);
+        throw ApiError.internal(`Database query failed: ${error.message}`);
       }
 
-      return (data || []) as Room[];
+      return (data || []).map((r) => ({
+        ...r,
+        bookings: r.bookings || []
+      })) as Room[];
     } catch (err) {
       if (err instanceof ApiError) throw err;
-      throw ApiError.internal('Failed to fetch rooms');
+      throw ApiError.internal('Failed to list rooms');
     }
   }
 
@@ -57,7 +64,12 @@ export class RoomService {
       throw ApiError.internal(`Failed to fetch room: ${error.message}`);
     }
 
-    return (data as Room) || null;
+    if (!data) return null;
+
+    return {
+      ...data,
+      bookings: data.bookings || []
+    } as Room;
   }
 
   async getByRoomNumber(roomNumber: string): Promise<Room | null> {
@@ -68,11 +80,16 @@ export class RoomService {
       .maybeSingle();
 
     if (error) {
-      logger.error(`Error fetching room with room_number ${roomNumber}:`, error.message);
+      logger.error(`Error fetching room by room_number ${roomNumber}:`, error.message);
       throw ApiError.internal(`Failed to fetch room: ${error.message}`);
     }
 
-    return (data as Room) || null;
+    if (!data) return null;
+
+    return {
+      ...data,
+      bookings: data.bookings || []
+    } as Room;
   }
 
   async create(dto: CreateRoomDto): Promise<Room> {
@@ -94,11 +111,14 @@ export class RoomService {
       .single();
 
     if (error) {
-      logger.error('Error creating room:', error.message);
+      logger.error('Error creating room in Supabase:', error.message);
       throw ApiError.badRequest(`Failed to create room: ${error.message}`);
     }
 
-    return data as Room;
+    return {
+      ...data,
+      bookings: data.bookings || []
+    } as Room;
   }
 
   async update(id: string, dto: UpdateRoomDto): Promise<Room> {
@@ -119,7 +139,10 @@ export class RoomService {
       throw ApiError.badRequest(`Failed to update room: ${error.message}`);
     }
 
-    return data as Room;
+    return {
+      ...data,
+      bookings: data.bookings || []
+    } as Room;
   }
 
   async delete(id: string): Promise<boolean> {
@@ -139,7 +162,7 @@ export class RoomService {
 
   /**
    * findAvailable: Finds rooms that are 'available' and have no overlapping bookings for the given time slot.
-   * Overlap condition: (start1 < end2) && (end1 > start2) on the same date.
+   * Normalized to UTC and checked against all candidates.
    */
   async findAvailable(filters: FindAvailableRoomsDto): Promise<Room[]> {
     const { date, start_time, end_time, min_capacity, equipment, type } = filters;
@@ -148,27 +171,43 @@ export class RoomService {
       throw ApiError.badRequest('date, start_time, and end_time are required to check room availability');
     }
 
-    if (start_time >= end_time) {
-      throw ApiError.badRequest('start_time must be earlier than end_time');
+    let timeRange: NormalizedTimeRange;
+    try {
+      timeRange = normalizeAndValidateTimeRange(start_time, end_time, date);
+    } catch (err: any) {
+      throw ApiError.badRequest(err.message || 'Invalid start_time or end_time');
     }
 
-    // 1. Fetch all bookings for this date that overlap with [start_time, end_time]
-    // Overlap: existing.start_time < target.end_time AND existing.end_time > target.start_time
-    const { data: overlappingBookings, error: bookingErr } = await supabase
+    // 1. Fetch bookings for this date
+    const { data: dayBookings, error: bookingErr } = await supabase
       .from('bookings')
-      .select('room_id, start_time, end_time')
-      .eq('date', date)
-      .lt('start_time', end_time)
-      .gt('end_time', start_time);
+      .select('room_id, date, start_time, end_time')
+      .eq('date', timeRange.startDate);
 
     if (bookingErr) {
       logger.error('Error checking overlapping bookings:', bookingErr.message);
       throw ApiError.internal(`Failed to check bookings: ${bookingErr.message}`);
     }
 
-    const bookedRoomIds = new Set((overlappingBookings || []).map((b) => b.room_id));
+    // 2. Exact UTC overlap check across all bookings on this date
+    const bookedRoomIds = new Set<string>();
+    for (const b of dayBookings || []) {
+      try {
+        const existingRange = {
+          startEpochMs: parseToUtcDate(b.start_time, b.date).getTime(),
+          endEpochMs: parseToUtcDate(b.end_time, b.date).getTime()
+        };
+        if (doTimeRangesOverlap(timeRange, existingRange)) {
+          bookedRoomIds.add(b.room_id);
+        }
+      } catch {
+        if (b.start_time < timeRange.endTime && b.end_time > timeRange.startTime) {
+          bookedRoomIds.add(b.room_id);
+        }
+      }
+    }
 
-    // 2. Query rooms
+    // 3. Query rooms
     let roomQuery = supabase
       .from('rooms')
       .select('*, bookings(*)')
@@ -189,14 +228,12 @@ export class RoomService {
       throw ApiError.internal(`Failed to query rooms: ${roomErr.message}`);
     }
 
-    // 3. Filter out booked rooms & check equipment if specified
+    // 4. Filter out booked rooms & check equipment if specified
     const availableRooms = (rooms || []).filter((r) => {
-      // Must not be booked during the requested window
       if (bookedRoomIds.has(r.id)) {
         return false;
       }
 
-      // Check equipment array filter if requested
       if (equipment && equipment.length > 0) {
         const roomEquipment = (r.equipment || []).map((eq: string) => eq.toLowerCase());
         const hasAllEquipment = equipment.every((reqEq) =>
@@ -213,6 +250,7 @@ export class RoomService {
 
   /**
    * book: Creates a booking for a room after verifying no overlap exists.
+   * Normalizes incoming time to UTC and enforces timezone-safe boundary checks.
    */
   async book(dto: BookRoomDto): Promise<Booking> {
     const { room_id, date, start_time, end_time, booked_by, purpose } = dto;
@@ -221,12 +259,14 @@ export class RoomService {
       throw ApiError.badRequest('All booking fields (room_id, date, start_time, end_time, booked_by, purpose) are required');
     }
 
-    if (start_time >= end_time) {
-      throw ApiError.badRequest('start_time must be strictly earlier than end_time');
+    let timeRange: NormalizedTimeRange;
+    try {
+      timeRange = normalizeAndValidateTimeRange(start_time, end_time, date);
+    } catch (err: any) {
+      throw ApiError.badRequest(err.message || 'Invalid start_time or end_time');
     }
 
     // Check if room exists and is available
-    // Handle both room id (e.g. "room-001") and room_number (e.g. "7A01")
     let room = await this.getById(room_id);
     if (!room) {
       room = await this.getByRoomNumber(room_id);
@@ -242,28 +282,38 @@ export class RoomService {
 
     const resolvedRoomId = room.id;
 
-    // Check for overlapping bookings
-    const { data: conflicts, error: conflictErr } = await supabase
+    // Fetch existing bookings for this room on this date
+    const { data: existingBookings, error: conflictErr } = await supabase
       .from('bookings')
       .select('*')
       .eq('room_id', resolvedRoomId)
-      .eq('date', date)
-      .lt('start_time', end_time)
-      .gt('end_time', start_time);
+      .eq('date', timeRange.startDate);
 
     if (conflictErr) {
       logger.error('Error verifying booking conflict:', conflictErr.message);
       throw ApiError.internal('Failed to check booking availability');
     }
 
-    if (conflicts && conflicts.length > 0) {
-      const conflict = conflicts[0];
+    // Check for overlapping bookings in UTC
+    const conflictingBooking = (existingBookings || []).find((b) => {
+      try {
+        const existingRange = {
+          startEpochMs: parseToUtcDate(b.start_time, b.date).getTime(),
+          endEpochMs: parseToUtcDate(b.end_time, b.date).getTime()
+        };
+        return doTimeRangesOverlap(timeRange, existingRange);
+      } catch {
+        return b.start_time < timeRange.endTime && b.end_time > timeRange.startTime;
+      }
+    });
+
+    if (conflictingBooking) {
       throw ApiError.conflict(
-        `Room ${room.room_number} is already booked on ${date} between ${conflict.start_time} and ${conflict.end_time} by ${conflict.booked_by} (${conflict.purpose})`
+        `Room ${room.room_number} is already booked on ${date} between ${conflictingBooking.start_time} and ${conflictingBooking.end_time} by ${conflictingBooking.booked_by} (${conflictingBooking.purpose})`
       );
     }
 
-    // Insert booking
+    // Insert normalized booking
     const bookingId = dto.id || `bk-${Date.now()}`;
     const { data: newBooking, error: insertErr } = await supabase
       .from('bookings')
@@ -271,9 +321,9 @@ export class RoomService {
         id: bookingId,
         room_id: resolvedRoomId,
         booked_by,
-        date,
-        start_time,
-        end_time,
+        date: timeRange.startDate,
+        start_time: timeRange.startTime,
+        end_time: timeRange.endTime,
         purpose
       })
       .select()
@@ -284,7 +334,7 @@ export class RoomService {
       throw ApiError.internal(`Failed to book room: ${insertErr.message}`);
     }
 
-    logger.info(`Successfully booked room ${room.room_number} for ${booked_by} on ${date} (${start_time}-${end_time})`);
+    logger.info(`Successfully booked room ${room.room_number} for ${booked_by} on ${timeRange.startDate} (${timeRange.startTime}-${timeRange.endTime}) UTC`);
     return newBooking as Booking;
   }
 
@@ -298,18 +348,17 @@ export class RoomService {
       .eq('id', bookingId)
       .maybeSingle();
 
-    if (fetchErr || !booking) {
+    if (fetchErr) {
+      logger.error(`Error checking booking ${bookingId}:`, fetchErr.message);
+      throw ApiError.internal(`Failed to verify booking: ${fetchErr.message}`);
+    }
+
+    if (!booking) {
       throw ApiError.notFound(`Booking with ID "${bookingId}" not found`);
     }
 
-    if (bookedBy) {
-      const isMatch = booking.booked_by.toLowerCase().trim() === bookedBy.toLowerCase().trim() ||
-                      booking.booked_by.toLowerCase().includes(bookedBy.toLowerCase().trim());
-      if (!isMatch) {
-        throw ApiError.forbidden(
-          `Unauthorized: booking "${bookingId}" was booked by "${booking.booked_by}", not "${bookedBy}"`
-        );
-      }
+    if (bookedBy && booking.booked_by.toLowerCase() !== bookedBy.toLowerCase()) {
+      throw ApiError.forbidden(`Unauthorized: Booking "${bookingId}" was booked by "${booking.booked_by}", not "${bookedBy}"`);
     }
 
     const { error: deleteErr } = await supabase
