@@ -100,7 +100,7 @@ Read literally: within *this* client, after any add/edit/delete/book/register, t
 
 | Phase | Time | Output |
 |---|---|---|
-| 0. Setup | 15 min | Supabase project created, `.env` filled (backend + frontend), `npm create vite`, express scaffold, schema.sql applied |
+| 0. Setup | 15 min | Supabase project created, single root-level `.env` filled (backend reads it, frontend needs none), `npm create vite`, express scaffold, schema.sql applied |
 | 1. Data layer | 45 min | `db/schema.sql`, `db/seed.ts` run successfully, `services/*.ts` for all 5 systems incl. `findAvailable`/`book`/`register` |
 | 2. REST API | 30 min | `routes/*.ts` — GET/POST/PUT/DELETE for all 5, thin controllers over services |
 | 3. Dashboard UI | 75 min | 5 sections, table + add/edit dialog + delete confirm per section, wired to `lib/api.ts`, optimistic-or-refetch update on every mutation |
