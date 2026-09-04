@@ -310,7 +310,8 @@ Full time-boxed minute budget per phase is in [`PLAN.md`](./PLAN.md#build-order-
 
 ## Environment variables
 
-Backend `.env` (see [`.env.example`](./.env.example)):
+A single `.env` at the **repo root** (see [`.env.example`](./.env.example), also at the
+root) — not `backend/.env`. The backend process loads it from there:
 
 | Var | Required | Purpose |
 |---|---|---|

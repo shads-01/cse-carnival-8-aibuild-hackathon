@@ -63,11 +63,13 @@ cd backend && npm install && npm run seed && npm run dev
 cd frontend && npm install && npm run dev
 ```
 
-Required env vars (backend `.env`, see `.env.example`): `SUPABASE_URL`,
-`SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY` (the confirmed LLM provider — see
-`ARCHITECTURE.md`'s Stack section — wired into `llmClient.ts`), `PORT`. The Supabase
-service-role key is backend-only — never ship it to the frontend bundle or use it in
-client-side code.
+Required env vars live in a single `.env` at the **repo root** (see `.env.example`, also
+at the root): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY` (the confirmed
+LLM provider — see `ARCHITECTURE.md`'s Stack section — wired into `llmClient.ts`), `PORT`.
+The backend loads it from there (e.g. `dotenv.config({ path: '../.env' })` from
+`backend/src`, or run `npm` scripts with the working directory set to the repo root) —
+there is no separate `backend/.env`. The Supabase service-role key is backend-only — never
+ship it to the frontend bundle or use it in client-side code.
 
 ## Conventions
 
