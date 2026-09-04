@@ -1,8 +1,10 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { Home, Calendar, Sparkles, BookOpenCheck, Bot } from 'lucide-react';
 
 export const StudentBottomTabs: React.FC = () => {
+  const location = useLocation();
+
   const tabs = [
     { to: '/app', label: 'Home', icon: Home, end: true },
     { to: '/app/schedule', label: 'Schedule', icon: Calendar },
@@ -10,6 +12,14 @@ export const StudentBottomTabs: React.FC = () => {
     { to: '/app/assignments', label: 'Tasks', icon: BookOpenCheck },
     { to: '/app/chat', label: 'AI', icon: Bot, isAgent: true }
   ];
+
+  const getActiveIndex = () => {
+    const path = location.pathname;
+    const index = tabs.findIndex(tab => tab.end ? path === tab.to : path.startsWith(tab.to));
+    return index !== -1 ? index : 0;
+  };
+
+  const activeIndex = getActiveIndex();
 
   return (
     <nav
@@ -24,12 +34,30 @@ export const StudentBottomTabs: React.FC = () => {
         borderRadius: 'var(--radius-xl)',
         display: 'none',
         alignItems: 'center',
-        justifyContent: 'space-around',
         zIndex: 90,
-        padding: '0 8px',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
+        padding: '0 6px',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+        overflow: 'hidden'
       }}
     >
+      {/* Sliding Active Pill Indicator */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '6px',
+          bottom: '6px',
+          left: `calc(${activeIndex * 20}% + 4px)`,
+          width: 'calc(20% - 8px)',
+          borderRadius: 'var(--radius-lg)',
+          background: 'var(--accent-muted)',
+          border: '1px solid var(--glass-border-hover)',
+          boxShadow: '0 0 16px var(--accent-glow)',
+          transition: 'left 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+          pointerEvents: 'none',
+          zIndex: 0
+        }}
+      />
+
       {tabs.map((tab) => {
         const Icon = tab.icon;
         return (
@@ -38,16 +66,19 @@ export const StudentBottomTabs: React.FC = () => {
             to={tab.to}
             end={tab.end}
             style={({ isActive }) => ({
+              flex: 1,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '3px',
-              padding: '6px 12px',
+              height: '100%',
               borderRadius: 'var(--radius-lg)',
-              color: isActive ? 'var(--accent)' : 'var(--text-dim)',
-              transition: 'all var(--transition-fast)',
-              position: 'relative'
+              color: isActive ? 'var(--accent-hover)' : 'var(--text-dim)',
+              transition: 'color var(--transition-fast)',
+              position: 'relative',
+              zIndex: 1,
+              textDecoration: 'none'
             })}
           >
             <Icon size={20} />
@@ -68,3 +99,4 @@ export const StudentBottomTabs: React.FC = () => {
     </nav>
   );
 };
+

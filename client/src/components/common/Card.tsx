@@ -20,10 +20,11 @@ export const Card: React.FC<CardProps> = ({
   ...props
 }) => {
   const cardClass = variant === 'elevated' ? 'glass-elevated' : 'glass';
+  const interactiveClass = props.onClick ? 'glass-interactive' : '';
 
   return (
     <div
-      className={`${cardClass} ${className}`}
+      className={`${cardClass} ${interactiveClass} ${className}`}
       style={{
         padding: noPadding ? '0' : '1.5rem',
         display: 'flex',

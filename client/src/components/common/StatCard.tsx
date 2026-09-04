@@ -22,7 +22,7 @@ export const StatCard: React.FC<StatCardProps> = ({
 }) => {
   return (
     <div
-      className="glass-card"
+      className={`glass-card ${onClick ? 'glass-interactive' : ''}`}
       onClick={onClick}
       style={{
         display: 'flex',
