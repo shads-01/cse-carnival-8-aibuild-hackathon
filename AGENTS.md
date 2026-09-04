@@ -6,10 +6,14 @@ implementing from scratch. See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the fu
 design: data model, REST/agent-tool contracts, and a request-lifecycle trace. This file is
 the durable reference for conventions once code exists.
 
-**Current state:** nothing is scaffolded yet — no `backend/` or `frontend/` directory
-exists. Only `data/` (seed JSON), `schema/`, `sample_queries/`, and the planning docs are
-present. Start at Phase 0 in `PLAN.md`. See `ARCHITECTURE.md`'s
-[status banner](./ARCHITECTURE.md#status-as-of-this-writing--read-this-first) and
+**Current state (updated 2026-09-04):** the directory layout is **not** `backend/`/
+`frontend/` as originally planned — it's an npm-workspaces monorepo, `client/` + `server/` +
+`shared/`, scaffolded with generic auth/user boilerplate that predates the CampusOS domain.
+`server/src/db/schema.sql` (the real 7-table schema) is the one piece of the actual domain
+that exists. Start at Phase 1 in `PLAN.md` (Phase 0's scaffold already landed, just not in
+the shape `PLAN.md` describes). See `ARCHITECTURE.md`'s
+[status banner](./ARCHITECTURE.md#status-as-of-this-writing--read-this-first),
+[open decisions](./ARCHITECTURE.md#open-decisions--risks) (why the layout changed), and
 [build-phases table](./ARCHITECTURE.md#build-phases--current-status) before assuming
 otherwise, and update both this note and that table as phases land.
 
@@ -39,40 +43,48 @@ agent/tools.ts ─┘        (single source of truth)
 
 ## Directory layout
 
+npm workspaces (`shared`, `server`, `client`), root `package.json`. Full breakdown —
+including what already exists from the auth scaffold vs. what's new for the CampusOS
+domain — is in `ARCHITECTURE.md`'s
+[Target directory layout](./ARCHITECTURE.md#target-directory-layout). Summary:
+
 ```
-backend/src/
-  db/            supabase client, schema.sql, seed.ts (loads data/*.json)
+server/src/
+  db/            schema.sql (done, 7 tables), seed.ts (loads data/*.json — not yet written)
   services/      one file per system — the only layer that talks to Supabase
-  routes/        thin controllers over services/, one file per system + agent.ts
+  controllers/   parse req, call service, format response — one per system
+  routes/v1/     thin Zod-validated routers over controllers/, one per system + agent.routes.ts
   agent/         tools.ts (schemas + handlers calling services/), systemPrompt.ts,
                  llmClient.ts (swappable LLM wrapper), runAgent.ts (tool-use loop)
-frontend/src/
-  pages/         Dashboard.tsx
-  components/    one *Section.tsx per system (table + add/edit dialog + delete),
-                 ChatPanel.tsx
-  lib/api.ts     typed fetch wrapper — the only thing components use to hit the backend
+client/src/
+  features/campus/  one *Section.tsx per system (table + add/edit dialog + delete),
+                     ChatPanel.tsx
+  services/          campusService.ts — typed functions calling /api/v1/* through api.ts (Axios)
+  store/             campusStore.ts (Zustand) — the only thing sections read data from,
+                     and what ChatPanel.tsx refetches into after a mutating agent reply
 ```
 
 ## Running it
 
 ```bash
-# backend
-cd backend && npm install && npm run seed && npm run dev
-
-# frontend (separate terminal)
-cd frontend && npm install && npm run dev
+npm install     # installs all three workspaces from the repo root
+npm run dev     # runs server (:5000, /api/v1/...) + client (:5173) concurrently
 ```
 
 Required env vars live in a single `.env` at the **repo root** (see `.env.example`, also
 at the root): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY` (the confirmed
-LLM provider — see `ARCHITECTURE.md`'s Stack section — wired into `llmClient.ts`), `PORT`.
-The backend loads it from there (e.g. `dotenv.config({ path: '../.env' })` from
-`backend/src`, or run `npm` scripts with the working directory set to the repo root) —
-there is no separate `backend/.env`. The Supabase service-role key is backend-only — never
-ship it to the frontend bundle or use it in client-side code.
+LLM provider — see `ARCHITECTURE.md`'s Stack section — wired into `llmClient.ts`), `PORT`,
+plus the `VITE_`-prefixed subset `client/` needs at build time. Full list in
+`ARCHITECTURE.md`'s [Environment variables](./ARCHITECTURE.md#environment-variables).
+`server/src/config/index.ts` loads and validates it from the repo root — there is no
+separate `server/.env`. The Supabase service-role key is backend-only — never ship it to
+the client bundle or use it in client-side code.
 
 ## Conventions
 
+- Task-tracking: in `tasks.md` and the `TASKS_*.md` files, when you finish a checklist item
+  mark it done AND strike it through — `- [x] ~~task text~~` — not just a checked box. Makes
+  progress readable at a glance for both humans and agents picking this up mid-build.
 - TypeScript everywhere, strict mode on.
 - Every mutation (add/edit/delete/book/register/cancel) updates the calling client's UI
   state immediately from the response — no manual refresh, per the brief. No polling or
