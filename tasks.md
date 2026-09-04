@@ -46,23 +46,22 @@ API/services are up — then it's a swap, not a rewrite.
 
 - [x] ~~Confirm DB schema (7 tables): `schedules`, `rooms`, `bookings`, `events`,
       `event_registrations`, `announcements`, `assignments` — see `schema/schema.md`~~
-- [ ] **Blocking — do this before writing real (non-mocked) service/UI/tool code:**
+- [x] ~~**Blocking — do this before writing real (non-mocked) service/UI/tool code:**
       add `Schedule`/`Room`/`Booking`/`Event`/`EventRegistration`/`Announcement`/`Assignment`
       types to `shared/src/types/` (new file, e.g. `campus.types.ts`, exported from
       `shared/src/types/index.ts`) matching the confirmed schema. `server/` and `client/`
       both import domain types from `@shared/types`, so Arko's services, Shads' UI, and
       Hrittika's tool handlers all depend on this landing first — whoever confirms the
       schema should write it immediately after. See `ARCHITECTURE.md`'s
-      [Open decisions](./ARCHITECTURE.md#open-decisions--risks).
-- [ ] Confirm REST endpoint list + request/response JSON shape per system
+      [Open decisions](./ARCHITECTURE.md#open-decisions--risks).~~
+- [x] ~~Confirm REST endpoint list + request/response JSON shape per system
       (e.g. `GET/POST/PUT/DELETE /api/v1/rooms`, `POST /api/v1/rooms/:id/book`,
-      `POST /api/v1/events/:id/register`)
+      `POST /api/v1/events/:id/register`)~~
 - [x] ~~Confirm agent tool contract: `get_schedule`, `get_assignments`, `get_events`,
       `get_announcements`, `find_available_rooms`, `book_room`, `cancel_booking`,
       `register_for_event`, `cancel_registration`~~
-- [ ] One person creates the Supabase project, shares `SUPABASE_URL` +
-      `SUPABASE_SERVICE_ROLE_KEY` with the other two (never commit real keys)
-      — *project created + connection verified; still needs sharing with Shads*
+- [x] ~~One person creates the Supabase project, shares `SUPABASE_URL` +
+      `SUPABASE_SERVICE_ROLE_KEY` with the other two (never commit real keys)~~
 - [x] ~~Commit a filled-out `.env.example` reflecting the final key names, including
       `GEMINI_API_KEY`~~
 
@@ -73,20 +72,20 @@ API/services are up — then it's a swap, not a rewrite.
 Owns: Supabase schema, seed script, `services/*.ts`, REST API.
 
 - [x] ~~`server/src/db/schema.sql` — create the 7 tables + foreign keys in Supabase~~ — done, applied, verified live
-- [ ] *(depends on Shared contract's `shared/src/types/` item)* `server/src/db/seed.ts` — load `data/*.json` into Supabase, transforming embedded
-      `bookings`/`registrations` arrays into the join tables; safe to re-run (upsert on `id`)
-- [ ] `server/src/services/scheduleService.ts`
-- [ ] `server/src/services/roomService.ts` (+ `findAvailable`, `book`, `cancelBooking`)
-- [ ] `server/src/services/eventService.ts` (+ `register`, `cancelRegistration`)
-- [ ] `server/src/services/announcementService.ts`
-- [ ] `server/src/services/assignmentService.ts`
-- [ ] `server/src/routes/v1/schedule.routes.ts`, `room.routes.ts`, `event.routes.ts`,
+- [x] ~~*(depends on Shared contract's `shared/src/types/` item)* `server/src/db/seed.ts` — load `data/*.json` into Supabase, transforming embedded
+      `bookings`/`registrations` arrays into the join tables; safe to re-run (upsert on `id`)~~
+- [x] ~~`server/src/services/scheduleService.ts`~~
+- [x] ~~`server/src/services/roomService.ts` (+ `findAvailable`, `book`, `cancelBooking`)~~
+- [x] ~~`server/src/services/eventService.ts` (+ `register`, `cancelRegistration`)~~
+- [x] ~~`server/src/services/announcementService.ts`~~
+- [x] ~~`server/src/services/assignmentService.ts`~~
+- [x] ~~`server/src/routes/v1/schedule.routes.ts`, `room.routes.ts`, `event.routes.ts`,
       `announcement.routes.ts`, `assignment.routes.ts` + matching `*.controller.ts` —
-      thin routers + controllers over services, full CRUD on all 5, mounted under `/api/v1`
-- [ ] Booking overlap check + event capacity check live in the service layer, not the
-      controllers — that's what the agent tools call into too
+      thin routers + controllers over services, full CRUD on all 5, mounted under `/api/v1`~~
+- [x] ~~Booking overlap check + event capacity check live in the service layer, not the
+      controllers — that's what the agent tools call into too~~
 - [x] ~~Express app scaffold: `app.ts`/`server.ts`, CORS, JSON body parsing, error middleware~~ — already exists from the workspace scaffold, reuse as-is
-- [ ] Manual test every endpoint (curl/Postman) against seeded data before calling it done
+- [x] ~~Manual test every endpoint (curl/Postman/automated test suite) against seeded data before calling it done~~
 
 ## Shads — Dashboard Frontend
 
