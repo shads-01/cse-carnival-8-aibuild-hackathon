@@ -12,7 +12,17 @@ const envSchema = z.object({
   JWT_SECRET: z.string().default('default_jwt_secret_key_12345'),
   SUPABASE_URL: z.string().url('SUPABASE_URL must be a valid URL'),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
-  SUPABASE_ANON_KEY: z.string().optional()
+  SUPABASE_ANON_KEY: z.string().optional(),
+  GEMINI_API_KEYS: z
+    .string()
+    .min(1, 'GEMINI_API_KEYS is required (comma-separated Gemini API keys)')
+    .transform((val) =>
+      val
+        .split(',')
+        .map((key) => key.trim())
+        .filter((key) => key.length > 0)
+    )
+    .refine((keys) => keys.length > 0, 'GEMINI_API_KEYS must contain at least one key')
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
@@ -31,5 +41,8 @@ export const config = {
     url: parsedEnv.data.SUPABASE_URL,
     serviceRoleKey: parsedEnv.data.SUPABASE_SERVICE_ROLE_KEY,
     anonKey: parsedEnv.data.SUPABASE_ANON_KEY
+  },
+  gemini: {
+    apiKeys: parsedEnv.data.GEMINI_API_KEYS
   }
 };

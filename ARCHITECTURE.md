@@ -292,8 +292,8 @@ server/
    │                                routes, 404 handler, error middleware. Mount the 5 new v1
    │                                routers here alongside the existing user/auth/health ones.
    ├─ config/
-   │  ├─ index.ts                  existing — Zod-validated env loader (add GEMINI_API_KEY here
-   │  │                            once agent/ needs it validated at startup)
+   │  ├─ index.ts                  existing — Zod-validated env loader; validates
+   │  │                            GEMINI_API_KEYS (comma-separated, one or more keys)
    │  └─ supabase.ts                existing — service-role Supabase client, reused as-is
    ├─ db/
    │  ├─ schema.sql                DONE — 7 tables + events_with_registration_count view (moved
@@ -512,10 +512,10 @@ there; `client/` reads its own subset at build time via Vite's `VITE_`-prefixed 
 | `SUPABASE_URL` | yes | Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | yes | Backend-only Supabase service-role key — never ship to the client bundle |
 | `SUPABASE_ANON_KEY` | optional | Public anon key; mirrored into `VITE_SUPABASE_ANON_KEY` for the client's own `supabaseClient.ts` |
-| `GEMINI_API_KEY` | yes (once `agent/` exists) | Google AI Studio key, used by `server/src/agent/llmClient.ts` (Google GenAI SDK) |
+| `GEMINI_API_KEYS` | yes | Comma-separated Google AI Studio key(s), used by `server/src/agent/llmClient.ts` (Google GenAI SDK). One key works; with 2+, `llmClient.ts` automatically rotates to the next key when the current one returns a 429 rate-limit error. |
 | `PORT` | no — defaults to `5000` | Express listen port |
 | `NODE_ENV`, `CLIENT_URL`, `JWT_SECRET` | no — all default | Pre-existing from the auth scaffold; `config/index.ts` still validates them even though the CampusOS domain doesn't use auth |
-| `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | yes, for `client/` | Vite only exposes `VITE_`-prefixed vars to the browser bundle — never put `SUPABASE_SERVICE_ROLE_KEY` or `GEMINI_API_KEY` behind this prefix |
+| `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | yes, for `client/` | Vite only exposes `VITE_`-prefixed vars to the browser bundle — never put `SUPABASE_SERVICE_ROLE_KEY` or `GEMINI_API_KEYS` behind this prefix |
 
 Never commit `.env` or real keys — `.env.example` is the template and should only ever
 contain placeholders. (It briefly didn't: a prior commit merged in with literal
