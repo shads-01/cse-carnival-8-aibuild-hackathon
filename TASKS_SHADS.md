@@ -2,6 +2,8 @@
 
 Deadline: **8:30 PM, 4 September**. Full detail: [`tasks.md`](./tasks.md) · [`PLAN.md`](./PLAN.md) · [`ARCHITECTURE.md`](./ARCHITECTURE.md)
 
+> When you finish a checklist item below, check it **and** strike it through: `- [x] ~~item~~`.
+
 You own: the React CRUD UI for all 5 systems. Build against mocked JSON matching the agreed contract — you don't need Arko's server running to start.
 
 ## Setup (do first, ~15 min, with the other two)

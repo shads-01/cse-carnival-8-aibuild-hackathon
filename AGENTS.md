@@ -73,6 +73,9 @@ ship it to the frontend bundle or use it in client-side code.
 
 ## Conventions
 
+- Task-tracking: in `tasks.md` and the `TASKS_*.md` files, when you finish a checklist item
+  mark it done AND strike it through — `- [x] ~~task text~~` — not just a checked box. Makes
+  progress readable at a glance for both humans and agents picking this up mid-build.
 - TypeScript everywhere, strict mode on.
 - Every mutation (add/edit/delete/book/register/cancel) updates the calling client's UI
   state immediately from the response — no manual refresh, per the brief. No polling or

@@ -2,6 +2,8 @@
 
 Deadline: **8:30 PM, 4 September 2026**. Full architecture and rationale: [`PLAN.md`](./PLAN.md).
 
+> When you finish a checklist item below, check it **and** strike it through: `- [x] ~~item~~`.
+
 Goal: all three of you work **in parallel with zero blocking dependencies**. Agree the
 contract once, then each own a track nobody else touches until the final integration step.
 
@@ -26,18 +28,19 @@ API/services are up — then it's a swap, not a rewrite.
 
 ## Shared contract (do together first, ~15 min)
 
-- [ ] Confirm DB schema (7 tables): `schedules`, `rooms`, `bookings`, `events`,
-      `event_registrations`, `announcements`, `assignments` — see `schema/schema.md`
+- [x] ~~Confirm DB schema (7 tables): `schedules`, `rooms`, `bookings`, `events`,
+      `event_registrations`, `announcements`, `assignments` — see `schema/schema.md`~~
 - [ ] Confirm REST endpoint list + request/response JSON shape per system
       (e.g. `GET/POST/PUT/DELETE /api/rooms`, `POST /api/rooms/:id/book`,
       `POST /api/events/:id/register`)
-- [ ] Confirm agent tool contract: `get_schedule`, `get_assignments`, `get_events`,
+- [x] ~~Confirm agent tool contract: `get_schedule`, `get_assignments`, `get_events`,
       `get_announcements`, `find_available_rooms`, `book_room`, `cancel_booking`,
-      `register_for_event`, `cancel_registration`
+      `register_for_event`, `cancel_registration`~~
 - [ ] One person creates the Supabase project, shares `SUPABASE_URL` +
       `SUPABASE_SERVICE_ROLE_KEY` with the other two (never commit real keys)
-- [ ] Commit a filled-out `.env.example` reflecting the final key names, including
-      `GEMINI_API_KEY`
+      — *project created + connection verified; still needs sharing with Shads*
+- [x] ~~Commit a filled-out `.env.example` reflecting the final key names, including
+      `GEMINI_API_KEY`~~
 
 ---
 

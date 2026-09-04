@@ -63,10 +63,11 @@ integration point.
 
 | Layer | Choice | Notes |
 |---|---|---|
-| Backend | Express + TypeScript | One process, one port. |
+| Backend | Express + TypeScript | One process, one port; `routes/*.ts` is the Express controller layer — thin, no business logic. |
 | Frontend | React (Vite) + TypeScript + Tailwind + shadcn/ui | shadcn buys accessible, polished dialogs/tables/forms without hand-rolled CSS. |
-| Database | Supabase (Postgres) | Accessed **only** from the Express backend via the service-role key. Frontend never talks to Supabase directly. |
-| LLM | **Google Gemini** (`gemini-2.5-flash` or `gemini-2.5-pro`), native function calling via `tools`/`functionDeclarations` | Isolated behind `agent/llmClient.ts` so swapping providers later is a ~15-line change, not a rewrite. |
+| Data fetching / cache | TanStack Query (`@tanstack/react-query`), wrapping `lib/api.ts` | Gives the dashboard `invalidateQueries` — how it re-renders with fresh data after the agent mutates something, with no manual reload. See [Request lifecycle](#request-lifecycle--a-full-trace) step 9. |
+| Database | Supabase (Postgres) | Accessed **only** from the Express backend via the **Supabase service-role key**. Frontend never talks to Supabase directly. |
+| LLM | **Google Gemini** (`gemini-2.5-flash` or `gemini-2.5-pro`), native function calling via the **Google GenAI SDK** (`@google/genai`, `tools`/`functionDeclarations`) | Isolated behind `agent/llmClient.ts` so swapping providers later is a ~15-line change, not a rewrite. |
 
 > **Decision note:** confirmed 2026-09-04 — **the LLM provider is Gemini**, matching
 > `PLAN.md`, `tasks.md`, and the Hrittika track. If you're an agent and see any doc (including
@@ -83,20 +84,43 @@ integration point.
 route handler skip the service layer "just this once."
 
 ```
-                     ┌─────────────────────┐
-   React Dashboard ──┤                     │
-   (CRUD UI)          │   Express API       │
-                     │   routes/*.ts        │
-                     │        │             │
-                     │        ▼             │
-                     │   services/*.ts  ◄───┼── agent/tools.ts
-                     │   (single source      │   (Gemini tool calls
-                     │    of truth)          │    route through here)
-                     │        │             │
-                     └────────┼─────────────┘
-                              ▼
-                        Supabase (Postgres)
+┌─────────────────┐                ┌───────────────┐
+│ React Dashboard │                │ Chat / Agent  │
+│ (full CRUD UI)  │                │ ChatPanel.tsx │
+└─────────────────┘                └───────────────┘
+         │ fetch (lib/api.ts)              │ POST /api/agent/chat
+         ▼                                 ▼
+┌──────────────────┐                ┌───────────────────┐
+│   routes/*.ts    │                │  agent/tools.ts   │
+│ thin controllers │                │  9 tool handlers  │
+│ validate + call  │                │ no business logic │
+└──────────────────┘                └───────────────────┘
+          │                                   │
+          └─────────────────┬─────────────────┘
+       both call the SAME services/*.ts functions
+                            ▼
+    ┌──────────────────────────────────────────────┐
+    │                services/*.ts                 │
+    │ scheduleService · roomService · eventService │
+    │   announcementService · assignmentService    │
+    │          — single source of truth —          │
+    │      conflict checks, capacity checks:       │
+    │     the ONLY code that reaches Postgres      │
+    └──────────────────────────────────────────────┘
+                            │ supabase-js (service-role key)
+                            ▼
+            ┌──────────────────────────────┐
+            │     Supabase (Postgres)      │
+            │ schedules · rooms · bookings │
+            │ events · event_registrations │
+            │ announcements · assignments  │
+            └──────────────────────────────┘
 ```
+
+Both entry points — the dashboard's `routes/*.ts` (the Express controller layer) and the
+agent's `agent/tools.ts` — terminate in the *same* `services/*.ts` functions before anything
+reaches Postgres. Neither is allowed a shortcut around that middle layer; that's the whole
+rule, drawn as a diagram instead of stated as a sentence.
 
 Why this is non-negotiable rather than a style preference: "always using the latest data" is
 worth 10 of the 40 agent marks, graded directly by editing a record in the dashboard and then
@@ -113,47 +137,82 @@ called from a route and/or a tool. Never written twice.
 Normalized Postgres tables (not JSONB blobs) so booking-conflict and capacity queries are
 cheap `WHERE` clauses, not app-level array scanning. Mirrors [`schema/schema.md`](./schema/schema.md)
 with two seed-data arrays (`rooms[].bookings`, `events[].registrations`) split into their own
-tables.
+tables — 7 tables total.
 
 ```
-schedules                    rooms                         events
-├─ id (PK)                   ├─ id (PK)                    ├─ id (PK)
-├─ course                    ├─ room_number                ├─ name
-├─ title                     ├─ type                       ├─ description
-├─ day                       ├─ capacity                   ├─ date / end_date
-├─ start_time / end_time     ├─ equipment[]                ├─ start_time / end_time
-├─ room                      ├─ floor                      ├─ venue
-├─ instructor                └─ status                     ├─ organizer
-└─ section                        │                        ├─ capacity
-                                  │ 1                        ├─ registered (computed, not stored)
-                                  │                          └─ status
-                                  ▼ *                              │
-                            bookings                               │ 1
-                            ├─ id (PK)                              │
-                            ├─ room_id (FK → rooms.id)              ▼ *
-                            ├─ booked_by                      event_registrations
-                            ├─ date                           ├─ id (PK)
-                            ├─ start_time / end_time          ├─ event_id (FK → events.id)
-                            └─ purpose                        ├─ student_id
-                                                               └─ name
+┌─ schedules ───────────┐      ┌─ rooms ───────────────┐      ┌─ events ───────────────────────┐
+│ id            uuid PK │      │ id            uuid PK │      │ id            uuid PK          │
+│ course        text    │      │ room_number   text    │      │ name          text             │
+│ title         text    │      │ type          text    │      │ description   text             │
+│ day           text    │      │ capacity      int     │      │ date          date             │
+│ start_time    time    │      │ equipment     text[]  │      │ end_date      date  (nullable) │
+│ end_time      time    │      │ floor         int     │      │ start_time    time             │
+│ room          text    │      │ status        text    │      │ end_time      time             │
+│ instructor    text    │      └───────────────────────┘      │ venue         text             │
+│ section       text    │                                     │ organizer     text             │
+└───────────────────────┘                                     │ capacity      int              │
+                                                              │ status        text             │
+                                                              └────────────────────────────────┘
+                                           │                                   │
+                                           ▼ 1..*                              ▼ 1..*
+                         ┌─ bookings ────────────────────────┐    ┌─ event_registrations ──────────────┐
+                         │ id            uuid PK             │    │ id            uuid PK              │
+                         │ room_id       uuid FK -> rooms.id │    │ event_id      uuid FK -> events.id │
+                         │ booked_by     text                │    │ student_id    text                 │
+                         │ date          date                │    │ name          text                 │
+                         │ start_time    time                │    └────────────────────────────────────┘
+                         │ end_time      time                │
+                         │ purpose       text                │
+                         └───────────────────────────────────┘
 
-announcements                assignments
-├─ id (PK)                   ├─ id (PK)
-├─ title                     ├─ course / course_title
-├─ body                      ├─ title / description
-├─ date                      ├─ assigned_date / deadline
-├─ priority                  ├─ submission_platform
-├─ posted_by                 ├─ status
-└─ expires                   └─ marks
+(FK)  bookings.room_id -> rooms.id               one room  : many bookings
+(FK)  event_registrations.event_id -> events.id  one event : many registrations
+
+(virtual) events.registered = COUNT(*) FROM event_registrations WHERE event_id = events.id
+          not a stored column — nothing to increment/decrement, nothing to drift
+```
+
+```
+┌─ announcements ────────────────┐        ┌─ assignments ────────────────────┐
+│ id            uuid PK          │        │ id                   uuid PK     │
+│ title         text             │        │ course               text        │
+│ body          text             │        │ course_title         text        │
+│ date          date             │        │ title                text        │
+│ priority      text             │        │ description          text        │
+│ posted_by     text             │        │ assigned_date        date        │
+│ expires       date  (nullable) │        │ deadline             timestamptz │
+└────────────────────────────────┘        │ submission_platform  text        │
+                                          │ status               text        │
+                                          │ marks                int         │
+                                          └──────────────────────────────────┘
+
+Stand-alone — no FK relations to the other five tables.
 ```
 
 **Two fields deliberately become computed, not stored:**
 - `events.registered` — a `COUNT(*)` over `event_registrations` where `event_id` matches, not
   a field the app has to remember to increment/decrement. A stored count can drift; a computed
-  one can't.
+  one can't. It is a **virtual/read-model field** — it appears in API/tool responses but has
+  no column in `events`.
 - Room booking conflicts — checked at write time in `roomService.book()` via
   `start_time < existing.end_time AND end_time > existing.start_time` over the `bookings` FK
   relation, not by scanning a JSON array.
+
+### Time & date conventions (applies to `bookings`, `schedules`, `events`)
+
+One format per concept, used identically everywhere it appears — in Postgres columns, service
+function signatures, REST payloads, and agent tool parameters:
+
+| Concept | Format | Postgres type | Example |
+|---|---|---|---|
+| Calendar date | `YYYY-MM-DD` (ISO 8601 date) | `date` | `2026-09-05` |
+| Clock time | `HH:mm`, 24-hour, campus-local (single time zone — no offset needed) | `time` | `15:00` |
+| A deadline that can cross midnight and needs unambiguous ordering | full ISO 8601 timestamp | `timestamptz` | `2026-09-12T23:59:00+05:30` |
+
+`assignments.deadline` is the **only** field that uses the full timestamp — every other
+date/time field in the schema is a plain `date` or `time` pair, because schedules, bookings,
+and events are always same-day, campus-local, and never need to be compared across days at
+sub-day precision.
 
 Seed script (`backend/src/db/seed.ts`) reads the five files in `data/`, transforms the
 embedded `bookings`/`registrations` arrays into rows in the two join tables, and upserts on
@@ -164,36 +223,46 @@ embedded `bookings`/`registrations` arrays into rows in the two join tables, and
 ## Target directory layout
 
 ```
-backend/src/
-  index.ts                 express app, mounts routes, CORS, JSON body parsing, error middleware
-  db/
-    client.ts               supabase client (service role — backend only, never bundled to frontend)
-    schema.sql               table definitions + FKs for the 7 tables above
-    seed.ts                   loads data/*.json into Supabase (see seed script note above)
-  services/                 the ONLY layer that talks to Supabase — see architecture rule
-    scheduleService.ts
-    roomService.ts           + findAvailable(), book(), cancelBooking() — conflict check lives here
-    eventService.ts          + register(), cancelRegistration() — capacity check lives here
-    announcementService.ts
-    assignmentService.ts
-  routes/                   thin controllers over services/ — no business logic here
-    schedules.ts rooms.ts events.ts announcements.ts assignments.ts
-    agent.ts                 POST /api/agent/chat
-  agent/
-    tools.ts                 9 tool schemas + handlers, call services/* — never Supabase directly
-    systemPrompt.ts           identity + the 4 behavior rules (see below)
-    llmClient.ts               Gemini wrapper (@google/generative-ai), swappable
-    runAgent.ts                 the tool-use loop
-frontend/src/
-  App.tsx
-  pages/
-    Dashboard.tsx
-  components/
-    ScheduleSection.tsx RoomSection.tsx (+ book/cancel UI) EventSection.tsx (+ register/cancel UI)
-    AnnouncementSection.tsx AssignmentSection.tsx
-    ChatPanel.tsx             message list + input, calls /api/agent/chat
-  lib/
-    api.ts                   typed fetch wrapper — the ONLY thing components use to hit the backend
+backend/
+└─ src/
+   ├─ index.ts                     express app: mounts routes, CORS, JSON body parsing, error middleware
+   ├─ db/
+   │  ├─ client.ts                 supabase client (service role — backend only, never bundled to frontend)
+   │  ├─ schema.sql                table definitions + FKs for the 7 tables (see Data model)
+   │  └─ seed.ts                   loads data/*.json into Supabase, upserts on id (see seed script note)
+   ├─ services/                    the ONLY layer that talks to Supabase — see architecture rule
+   │  ├─ scheduleService.ts
+   │  ├─ roomService.ts            + findAvailable(), book(), cancelBooking() — conflict check lives here
+   │  ├─ eventService.ts           + register(), cancelRegistration() — capacity check lives here
+   │  ├─ announcementService.ts
+   │  └─ assignmentService.ts
+   ├─ routes/                      thin Express controllers over services/ — no business logic here
+   │  ├─ schedules.ts
+   │  ├─ rooms.ts
+   │  ├─ events.ts
+   │  ├─ announcements.ts
+   │  ├─ assignments.ts
+   │  └─ agent.ts                  POST /api/agent/chat
+   └─ agent/
+      ├─ tools.ts                  9 tool schemas + handlers, call services/* — never Supabase directly
+      ├─ systemPrompt.ts           identity + the 4 behavior rules (see below) + injected current date/time
+      ├─ llmClient.ts              Google GenAI SDK wrapper (@google/genai), swappable — see AGENTS.md
+      └─ runAgent.ts               the tool-use loop: prompt → Gemini → tool call → tools.ts → Gemini → reply
+
+frontend/
+└─ src/
+   ├─ App.tsx                      router/shell, mounts Dashboard + ChatPanel, owns the TanStack QueryClient
+   ├─ pages/
+   │  └─ Dashboard.tsx             lays out the five CRUD sections
+   ├─ components/
+   │  ├─ ScheduleSection.tsx
+   │  ├─ RoomSection.tsx           + book/cancel UI
+   │  ├─ EventSection.tsx          + register/cancel UI
+   │  ├─ AnnouncementSection.tsx
+   │  ├─ AssignmentSection.tsx
+   │  └─ ChatPanel.tsx             message list + input, calls /api/agent/chat, invalidates queries on `mutated`
+   └─ lib/
+      └─ api.ts                   typed fetch wrapper — the ONLY thing components use to hit the backend
 ```
 
 ---
@@ -211,7 +280,7 @@ business logic (conflict checks, capacity checks) lives in the service, not here
 | Events | `GET/POST /api/events`, `PUT/DELETE /api/events/:id`, `POST /api/events/:id/register`, `POST /api/events/:id/registrations/:regId/cancel` |
 | Announcements | `GET/POST /api/announcements`, `PUT/DELETE /api/announcements/:id` |
 | Assignments | `GET/POST /api/assignments`, `PUT/DELETE /api/assignments/:id` |
-| Agent | `POST /api/agent/chat` |
+| Agent | `POST /api/agent/chat` — request `{ message: string, history?: ChatTurn[] }`, response `{ reply: string, mutated: string[] }`. `mutated` names the resource types (`"rooms"`, `"bookings"`, `"events"`, …) any tool call actually wrote in this turn — see [Request lifecycle](#request-lifecycle--a-full-trace) step 9 for how the frontend uses it. |
 
 ---
 
@@ -223,17 +292,22 @@ surface multiplies untested edge cases (auth, destructive actions) for marks the
 doesn't allocate there. If time remains after everything else: `create_announcement` is the
 cheapest addition.
 
-| Tool | Parameters | Calls into |
-|---|---|---|
-| `get_schedule` | `course?`, `day?` | `scheduleService` |
-| `get_assignments` | `course?`, `status?` | `assignmentService` |
-| `get_events` | `date?`, `status?` | `eventService` |
-| `get_announcements` | `priority?` | `announcementService` |
-| `find_available_rooms` | `date`, `start`, `end`, `min_capacity?`, `equipment?` | `roomService.findAvailable()` |
-| `book_room` | `room_id`, `date`, `start`, `end`, `booked_by`, `purpose` | `roomService.book()` |
-| `cancel_booking` | `booking_id` | `roomService.cancelBooking()` |
-| `register_for_event` | `event_id`, `student_id`, `name` | `eventService.register()` |
-| `cancel_registration` | `event_id`, `student_id` | `eventService.cancelRegistration()` |
+Parameter names match the Postgres column names 1:1 (see [Data model](#data-model) and
+[Time & date conventions](#time--date-conventions-applies-to-bookings-schedules-events)) —
+`start`/`end` never appears as a tool parameter, only `start_time`/`end_time`, so there is
+never a translation step between what the agent sends and what `services/*.ts` expects.
+
+| Tool | Parameters | Auth / validation | Calls into |
+|---|---|---|---|
+| `get_schedule` | `course?: string`, `day?: string` | — | `scheduleService.list()` |
+| `get_assignments` | `course?: string`, `status?: string` | — | `assignmentService.list()` |
+| `get_events` | `date?: string (YYYY-MM-DD)`, `status?: string` | — | `eventService.list()` |
+| `get_announcements` | `priority?: string` | — | `announcementService.list()` |
+| `find_available_rooms` | `date: string (YYYY-MM-DD)`, `start_time: string (HH:mm)`, `end_time: string (HH:mm)`, `min_capacity?: number`, `equipment?: string[]` | — | `roomService.findAvailable()` |
+| `book_room` | `room_id: string`, `date: string (YYYY-MM-DD)`, `start_time: string (HH:mm)`, `end_time: string (HH:mm)`, `booked_by: string`, `purpose: string` | all 6 required — any missing param triggers rule 2 ("ask, don't guess"), never a silent default | `roomService.book()` |
+| `cancel_booking` | `booking_id: string`, `booked_by: string` | `booked_by` must match `bookings.booked_by` on that row; mismatch → refuse under rule 3, don't cancel | `roomService.cancelBooking()` |
+| `register_for_event` | `event_id: string`, `student_id: string`, `name: string` | rejected (structured error, not a tool failure) if `events.registered >= events.capacity` | `eventService.register()` |
+| `cancel_registration` | `event_id: string`, `student_id: string` | `student_id` must match the `event_registrations` row being cancelled; no match → refuse under rule 3 | `eventService.cancelRegistration()` |
 
 **Tool handlers return structured errors** (`{ error: "..." }`), never a raw thrown exception
 into the LLM loop — the agent needs a clean signal to relay ("that room's already booked
@@ -261,25 +335,40 @@ These four rules map directly to the four agent sub-scores (10 marks each):
 The clearest way to see why the architecture rule holds up: trace *"Book Room 302 tomorrow, 3
 to 5 PM"* from chat message to UI update.
 
-1. **`ChatPanel.tsx`** posts the message to `POST /api/agent/chat`.
-2. **`routes/agent.ts`** hands it to **`agent/runAgent.ts`**, which calls Gemini via
-   **`agent/llmClient.ts`** with the system prompt + the 9 tool declarations.
-3. Gemini decides it needs room availability first — the system prompt (rule 1) forbids
-   answering from memory — and calls `find_available_rooms(date, start, end)`.
+1. **`ChatPanel.tsx`** posts `{ message: "Book Room 302 tomorrow, 3 to 5 PM" }` to
+   `POST /api/agent/chat`.
+2. **`routes/agent.ts`** hands it to **`agent/runAgent.ts`**. Before the first Gemini call,
+   `runAgent.ts` reads the server clock and injects the current campus-local date into the
+   system prompt as a literal line — e.g. `Current date: 2026-09-04 (Thursday)` — via
+   `systemPrompt.ts`. This is what lets Gemini resolve "tomorrow" into an absolute date
+   server-side; it is never left for the model to guess, and it never drifts from the client's
+   clock, because the client's clock is never consulted.
+3. `runAgent.ts` calls Gemini via **`agent/llmClient.ts`** with that system prompt + the 9 tool
+   declarations. Gemini resolves "tomorrow" → `2026-09-05` and "3 to 5 PM" → `15:00`/`17:00`,
+   and — forbidden by rule 1 from answering from memory — calls
+   `find_available_rooms(date: "2026-09-05", start_time: "15:00", end_time: "17:00")`.
 4. **`agent/tools.ts`**'s handler calls `roomService.findAvailable()` — the exact same
    function `routes/rooms.ts` would call if the dashboard's "available now" filter used it.
 5. `roomService.findAvailable()` queries Supabase directly (it's inside the service layer),
    checking room 302 against the `bookings` table for overlap in that window.
-6. Result flows back to Gemini. Room 302 is free → Gemini calls `book_room(room_id, date,
-   start, end, booked_by, purpose)`.
+6. Result flows back to Gemini. Room 302 is free → Gemini calls
+   `book_room(room_id: "302", date: "2026-09-05", start_time: "15:00", end_time: "17:00",
+   booked_by, purpose)`.
 7. `roomService.book()` re-checks the overlap (never trust the earlier read as still valid —
    time has passed) and, if still clear, inserts the `bookings` row.
-8. Response flows back through `runAgent.ts` → `routes/agent.ts` → `ChatPanel.tsx`: *"Booked
-   Room 302 for you, 3–5 PM tomorrow."*
-9. **Freshness check, the actual point of the exercise:** if a judge now opens the dashboard's
-   `RoomSection.tsx`, the same `roomService.book()` write is what they'd see — because it's
-   the same table, written by the same service function the route handler would have called.
-   There is no cache, no second copy, nothing to go stale.
+8. Response flows back through `runAgent.ts` → `routes/agent.ts` → `ChatPanel.tsx` as
+   `{ reply: "Booked Room 302 for you, 3–5 PM tomorrow.", mutated: ["rooms"] }` — `mutated`
+   names which resource types the tool calls in this turn actually wrote.
+9. **Freshness on the dashboard side:** `ChatPanel.tsx` sees `mutated: ["rooms"]` and calls
+   `queryClient.invalidateQueries({ queryKey: ["rooms"] })` (TanStack Query) — the same cache
+   key `RoomSection.tsx` reads from. No manual reload, no polling: the next render pulls the
+   fresh row straight from the invalidated query, which refetches from the same
+   `GET /api/rooms` → `roomService` path the dashboard always uses.
+10. **Freshness check, the actual point of the exercise:** if a judge now opens the dashboard's
+    `RoomSection.tsx`, the same `roomService.book()` write is what they'd see — because it's
+    the same table, written by the same service function the route handler would have called,
+    and the query cache pointing at it was just invalidated. There is no second copy of the
+    data, no cache lag, nothing to go stale.
 
 If step 4 had queried Supabase directly from `agent/tools.ts` instead of through
 `roomService`, this trace would still work today — but the day someone adds a second way to
@@ -316,8 +405,8 @@ root) — not `backend/.env`. The backend process loads it from there:
 | Var | Required | Purpose |
 |---|---|---|
 | `SUPABASE_URL` | yes | Supabase project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | yes | Backend-only key — never ship to the frontend bundle or client-side code |
-| `GEMINI_API_KEY` | yes | Google AI Studio key, used by `agent/llmClient.ts` |
+| `SUPABASE_SERVICE_ROLE_KEY` | yes | Backend-only Supabase service-role key — never ship to the frontend bundle or client-side code |
+| `GEMINI_API_KEY` | yes | Google AI Studio key, used by `agent/llmClient.ts` (Google GenAI SDK) |
 | `PORT` | yes | Express listen port |
 
 Never commit `.env` or real keys — `.env.example` is the template and should only ever
@@ -329,25 +418,28 @@ contain placeholders.
 
 Per system, applied where it matters most — booking:
 
-- **Nil input** — `book_room` called without `date`/`start`/`end` → validation error the
-  agent surfaces as a clarifying question, never a 500.
+- **Nil input** — `book_room` called without `date`/`start_time`/`end_time` → validation error
+  the agent surfaces as a clarifying question, never a 500.
 - **Empty result** — `find_available_rooms` finds nothing → agent says so plainly, offers to
   relax a constraint, doesn't hallucinate a room.
 - **Conflict** — `book_room` on an already-booked window → service layer detects the overlap
   and returns a conflict; agent relays it, doesn't silently double-book.
 - **Unauthorized** — cancel/register on a record not tied to the requester's stated identity
-  → refuse with a stated reason.
+  (`booked_by` on `cancel_booking`, `student_id` on `cancel_registration`) → refuse with a
+  stated reason.
 
 ---
 
 ## Open decisions / risks
 
-- **LLM provider — resolved 2026-09-04:** Gemini. See the [Stack](#stack) section's decision
-  note. If you're an agent and encounter a doc that still says otherwise, treat this file as
-  the source of truth and fix the stale doc.
+- **LLM provider — resolved 2026-09-04:** Gemini via the Google GenAI SDK. See the
+  [Stack](#stack) section's decision note. If you're an agent and encounter a doc that still
+  says otherwise, treat this file as the source of truth and fix the stale doc.
 - **Realtime scope — resolved by PLAN.md:** "no manual refresh" is read literally as
-  same-client state update from the mutation response, not multi-tab broadcast. Supabase
-  Realtime subscriptions are explicitly out of scope unless everything else lands early.
+  same-client state update from the mutation response (TanStack Query cache invalidation keyed
+  off the agent response's `mutated` field — see [Request lifecycle](#request-lifecycle--a-full-trace)
+  step 9), not multi-tab broadcast. Supabase Realtime subscriptions are explicitly out of scope
+  unless everything else lands early.
 - **Agent CRUD scope — resolved by PLAN.md:** agent gets read + book/cancel/register/cancel,
   not full add/edit/delete. Don't widen this without checking the rubric first — it adds edge
   cases without adding marks.
