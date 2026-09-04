@@ -58,11 +58,11 @@ section **and** the matching table in [`ARCHITECTURE.md`](./ARCHITECTURE.md#buil
 so the next session (agent or human) knows where things actually stand rather than
 re-deriving it from a stale plan doc:
 
-- [x] Phase 0 — Supabase project + scaffolding (workspace scaffold + `schema.sql` landed 2026-09-04, differently than planned — see `ARCHITECTURE.md` Open decisions)
-- [ ] Phase 1 — services/ data layer + seed script
-- [ ] Phase 2 — REST routes
-- [ ] Phase 3 — Dashboard UI
-- [ ] Phase 4 — Agent backend (tools + tool-use loop)
-- [ ] Phase 5 — Chat UI
+- [x] Phase 0 — Supabase project + scaffolding (workspace scaffold + `schema.sql` landed 2026-09-04)
+- [x] Phase 1 — services/ data layer + seed script (5 services + seed + conflict handling)
+- [x] Phase 2 — REST routes (all 5 routers + controllers mounted under `/api/v1`)
+- [x] Phase 3 — Dashboard UI (18 pages built with Ocean Glass design tokens, dark/light modes)
+- [ ] Phase 4 — Agent backend (tools + tool-use loop; `llmClient.ts` key-rotation done)
+- [x] Phase 5 — Chat UI (`ChatPanel.tsx` with quick chips from `sample_queries.md` integrated into admin/student)
 - [ ] Phase 6 — Test against sample_queries.md
 - [ ] Phase 7 — README + polish

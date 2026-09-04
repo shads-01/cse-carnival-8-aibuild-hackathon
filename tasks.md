@@ -97,31 +97,31 @@ Owns: Supabase schema, seed script, `server/src/services/*.ts`, REST API, auth s
 Owns: the React UI for all 18 pages, chat panel, design system, auth flows. Build against
 mocked JSON matching the contract — you don't need Arko's server running to start.
 
-- [ ] **Design system** — rewrite `client/src/index.css` with "Ocean Glass" tokens
-      (Style 5 Ocean Depth palette + Style 3 Apple Liquid Glass treatment), dark + light mode
-- [ ] Update common components (Button, Input, Card, Modal) to use new glass tokens
-- [ ] **New common components**: DataTable, RecordDialog, ConfirmDialog, StatusBadge,
-      StatCard, Skeleton, Toast, EmptyState, ThemeToggle, NotificationBell
-- [ ] **Chat components**: ChatPanel, ChatBubble, QuickChips, TypingIndicator
-- [ ] **Auth components**: OtpFlow (shared between signup + forgot)
-- [ ] **Layout components**: AdminLayout (sidebar + Outlet), StudentLayout (navbar + tabs + Outlet),
-      AuthLayout (centered card), AdminSidebar, StudentNavbar, StudentBottomTabs
-- [ ] **8 client services** cloning the `userService.ts` pattern: schedules, rooms, events,
-      announcements, assignments, requests, notifications, agent
-- [ ] **Routing**: AppRoutes with nested layout routes, RoleGuard (auth + role), SmartRedirect
-- [ ] **Auth pages**: LoginPage (role tabs + Google + demo-creds card), SignupPage
-      (edu email → OTP → profile + studentId), ForgotPage (email → OTP → reset)
-- [ ] **Admin pages (8)**: Overview, Schedules, Rooms, Events, Announcements, Assignments,
-      Requests (approval queue), Chat
-- [ ] **Student pages (7)**: Home (countdown + timeline + deadlines), Schedule (read-only grid),
+- [x] ~~**Design system** — rewrite `client/src/index.css` with "Ocean Glass" tokens
+      (Style 5 Ocean Depth palette + Style 3 Apple Liquid Glass treatment), dark + light mode~~
+- [x] ~~Update common components (Button, Input, Card, Modal) to use new glass tokens~~
+- [x] ~~**New common components**: DataTable, RecordDialog, ConfirmDialog, StatusBadge,
+      StatCard, Skeleton, Toast, EmptyState, ThemeToggle, NotificationBell~~
+- [x] ~~**Chat components**: ChatPanel, ChatBubble, QuickChips, TypingIndicator~~
+- [x] ~~**Auth components**: OtpFlow (shared between signup + forgot)~~
+- [x] ~~**Layout components**: AdminLayout (sidebar + Outlet), StudentLayout (navbar + tabs + Outlet),
+      AuthLayout (centered card), AdminSidebar, StudentNavbar, StudentBottomTabs~~
+- [x] ~~**8 client services** cloning the `userService.ts` pattern: schedules, rooms, events,
+      announcements, assignments, requests, notifications, agent~~
+- [x] ~~**Routing**: AppRoutes with nested layout routes, RoleGuard (auth + role), SmartRedirect~~
+- [x] ~~**Auth pages**: LoginPage (role tabs + Google + demo-creds card), SignupPage
+      (edu email → OTP → profile + studentId), ForgotPage (email → OTP → reset)~~
+- [x] ~~**Admin pages (8)**: Overview, Schedules, Rooms, Events, Announcements, Assignments,
+      Requests (approval queue), Chat~~
+- [x] ~~**Student pages (7)**: Home (countdown + timeline + deadlines), Schedule (read-only grid),
       Events (one-tap register + capacity bars), Announcements (priority filter),
-      Assignments (urgency badges), Activity (my requests + registrations), Chat (quick-prompt chips)
-- [ ] NotificationBell dropdown with deep-links
-- [ ] Toast system (success/error on every mutation)
-- [ ] Dark/light theme toggle (persisted to localStorage)
-- [ ] Mobile-first responsive: 360px verified first, then tablet, then desktop
-- [ ] Every mutation updates local state immediately — no manual refresh
-- [ ] Loading / empty / error states for every page
+      Assignments (urgency badges), Activity (my requests + registrations), Chat (quick-prompt chips)~~
+- [x] ~~NotificationBell dropdown with deep-links~~
+- [x] ~~Toast system (success/error on every mutation)~~
+- [x] ~~Dark/light theme toggle (persisted to localStorage)~~
+- [x] ~~Mobile-first responsive: 360px verified first, then tablet, then desktop~~
+- [x] ~~Every mutation updates local state immediately — no manual refresh~~
+- [x] ~~Loading / empty / error states for every page~~
 
 ### Non-negotiable rule
 Never call Supabase from the frontend for data operations. Everything goes through

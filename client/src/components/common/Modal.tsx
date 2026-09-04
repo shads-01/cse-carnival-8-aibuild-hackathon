@@ -1,14 +1,33 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 
-interface ModalProps {
+export interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title: string;
+  title: React.ReactNode;
+  subtitle?: React.ReactNode;
   children: React.ReactNode;
+  maxWidth?: string;
 }
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
+export const Modal: React.FC<ModalProps> = ({
+  isOpen,
+  onClose,
+  title,
+  subtitle,
+  children,
+  maxWidth = '540px'
+}) => {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
@@ -16,45 +35,78 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.75)',
-        backdropFilter: 'blur(4px)',
+        backgroundColor: 'rgba(3, 8, 18, 0.65)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 1000,
-        padding: '1rem'
+        padding: '1.25rem',
+        animation: 'fadeIn 0.2s ease forwards'
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
-        className="glass-panel"
+        className="glass-elevated animate-slide-up"
         style={{
           width: '100%',
-          maxWidth: '500px',
-          padding: '1.5rem',
-          position: 'relative'
+          maxWidth,
+          padding: '1.75rem',
+          position: 'relative',
+          maxHeight: '90vh',
+          overflowY: 'auto'
         }}
       >
         <div
           style={{
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '1rem'
+            alignItems: 'flex-start',
+            marginBottom: '1.25rem'
           }}
         >
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>{title}</h2>
+          <div>
+            <h2
+              style={{
+                fontSize: '1.25rem',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                letterSpacing: '-0.01em',
+                margin: 0
+              }}
+            >
+              {title}
+            </h2>
+            {subtitle && (
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px', margin: 0 }}>
+                {subtitle}
+              </p>
+            )}
+          </div>
           <button
             onClick={onClose}
+            aria-label="Close modal"
             style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--text-muted)',
-              cursor: 'pointer'
+              background: 'var(--glass-bg)',
+              border: '1px solid var(--glass-border)',
+              borderRadius: 'var(--radius-sm)',
+              width: '32px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              transition: 'all var(--transition-fast)'
             }}
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
+
         <div>{children}</div>
       </div>
     </div>

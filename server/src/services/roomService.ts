@@ -236,7 +236,7 @@ export class RoomService {
 
       if (equipment && equipment.length > 0) {
         const roomEquipment = (r.equipment || []).map((eq: string) => eq.toLowerCase());
-        const hasAllEquipment = equipment.every((reqEq) =>
+        const hasAllEquipment = equipment.every((reqEq: string) =>
           roomEquipment.includes(reqEq.toLowerCase())
         );
         if (!hasAllEquipment) return false;
