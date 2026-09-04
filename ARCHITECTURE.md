@@ -76,6 +76,14 @@ Shads and Hrittika don't wait on Arko — they build against the agreed contract
 endpoint shapes, tool signatures) with mocks, then swap to the real API/services as the one
 integration point.
 
+**One exception, introduced by adopting the `shared/` workspace (see [Open decisions](#open-decisions--risks)):**
+`server/` and `client/` both import domain types from `@shared/types`, which today only has
+user/auth types — no `Schedule`/`Room`/`Booking`/`Event`/`EventRegistration`/`Announcement`/
+`Assignment`. Whoever confirms the schema should add those to `shared/src/types/` immediately
+after — see `tasks.md`'s Shared contract checklist. Until they land, real (non-mocked)
+`server/`/`client/` code has nothing to import them from, which is the one place "zero
+blocking dependencies" doesn't fully hold anymore.
+
 ---
 
 ## Stack
@@ -544,9 +552,10 @@ Per system, applied where it matters most — booking:
   package) — and build the five CampusOS services/routes/UI *into* it rather than starting a
   second `backend/`+`frontend/` from scratch. `schema.sql` was moved from `backend/` into
   `server/src/db/` today; `backend/` no longer exists. Consequence: `Tailwind/shadcn` and a
-  plain `lib/api.ts` fetch wrapper (the original plan, and what `TASKS_SHADS.md` still says)
-  are superseded by what's already scaffolded — hand-rolled CSS components and an Axios +
-  Zustand client. The generic auth/user/JWT code that came with the scaffold stays in the repo
+  plain `lib/api.ts` fetch wrapper (the original plan) are superseded by what's already
+  scaffolded — hand-rolled CSS components and an Axios + Zustand client (updated in
+  `TASKS_SHADS.md`, `PLAN.md`, `tasks.md`, `AGENTS.md`, and `CLAUDE.md` the same day). The
+  generic auth/user/JWT code that came with the scaffold stays in the repo
   (ripping it out is wasted effort under tonight's clock) but **won't be extended** — it isn't
   named anywhere in `PROBLEM_STATEMENT.md` or the rubric, and none of the five graded systems
   need a login. If you're an agent and encounter a doc that still says `backend/`/`frontend/`,
