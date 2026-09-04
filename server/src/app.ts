@@ -12,11 +12,13 @@ const app: Application = express();
 // Security HTTP headers
 app.use(helmet());
 
-// Enable CORS
+// Enable CORS for development and configured origins
 app.use(
   cors({
-    origin: config.clientUrl,
-    credentials: true
+    origin: config.env === 'production' ? config.clientUrl : true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
   })
 );
 
