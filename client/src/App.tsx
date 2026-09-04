@@ -1,14 +1,13 @@
 import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
-import { AppLayout } from './components/layout/AppLayout';
 import { AppRoutes } from './routes/AppRoutes';
+import { ToastContainer } from './components/common/Toast';
 
 export const App: React.FC = () => {
   return (
     <BrowserRouter>
-      <AppLayout>
-        <AppRoutes />
-      </AppLayout>
+      <AppRoutes />
+      <ToastContainer />
     </BrowserRouter>
   );
 };
