@@ -1,34 +1,92 @@
-# Hrittika (me) — AI Agent
+# Hrittika — AI Agent (v4)
 
 Deadline: **8:30 PM, 4 September**. Full detail: [`tasks.md`](./tasks.md) · [`PLAN.md`](./PLAN.md) · [`ARCHITECTURE.md`](./ARCHITECTURE.md)
 
-You own: tool calling, LLM integration (**Google Gemini**, native function calling), chat UI. Build tool handlers against the agreed service signatures, stubbing data calls until Arko's services are live.
+> **v4 changes:** Chat UI is now Shads' responsibility — you provide only the backend
+> endpoint. Agent route = `POST /api/v1/agent/chat` (note `/api/v1/`, not `/api/`).
+> Agent code lives in `server/src/agent/`. All services are in `server/src/services/`.
 
-## Initial setup — my part (do first, ~15 min, with Arko + Shads)
-- [ ] Drive the shared-contract conversation: confirm the DB schema (7 tables — `schema/schema.md`), REST endpoint shapes, and the 9 agent tool signatures below
-- [ ] Draft the initial `db/schema.sql` (7 tables + FKs: `schedules`, `rooms`, `bookings`, `events`, `event_registrations`, `announcements`, `assignments`) for Arko to review and build `services/*.ts` against
-- [ ] Get a `GEMINI_API_KEY` from Google AI Studio
-- [ ] Get `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` from Arko once the Supabase project exists (backend-only — never in frontend code)
-- [ ] Commit the filled-out `.env.example` reflecting final key names: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, `PORT` (placeholders only, no real keys)
-- [ ] Confirm the non-negotiable rule with both: agent tools call `services/*.ts`, never Supabase directly
+You own: tool calling, LLM integration (**Google Gemini**, native function calling),
+system prompt, tool-use loop. Build tool handlers against the agreed service signatures,
+stubbing data calls until Arko's services are live.
 
-## Agent tool contract (confirm with Arko before he builds services)
-`get_schedule`, `get_assignments`, `get_events`, `get_announcements`, `find_available_rooms(date, start, end, min_capacity?, equipment?)`, `book_room(room_id, date, start, end, booked_by, purpose)`, `cancel_booking(booking_id)`, `register_for_event(event_id, student_id, name)`, `cancel_registration(event_id, student_id)`
+**You do NOT own the Chat UI anymore** — Shads is building `ChatPanel.tsx` and wiring it
+to your `POST /api/v1/agent/chat` endpoint. Your deliverable is the endpoint + the agent
+logic behind it.
+
+## Setup (with Arko + Shads, ~15 min)
+
+- [ ] Confirm agent tool contract: 9 tools (see below)
+- [ ] Get `GEMINI_API_KEY` from Google AI Studio
+- [ ] Get `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` from Arko
+- [ ] Confirm route base = `/api/v1/agent/chat` (not `/api/agent/chat`)
+- [ ] Confirm the non-negotiable: agent tools call `server/src/services/*.ts`, never Supabase directly
+
+## Agent tool contract (confirm with Arko)
+
+| Tool | Params | Service call |
+|------|--------|-------------|
+| `get_schedule` | `day?`, `course?` | `scheduleService.getAll(filters)` |
+| `get_assignments` | `course?`, `status?` | `assignmentService.getAll(filters)` |
+| `get_events` | `status?`, `date?` | `eventService.getAll(filters)` |
+| `get_announcements` | `priority?` | `announcementService.getAll(filters)` |
+| `find_available_rooms` | `date, start, end, min_capacity?, equipment?` | `roomService.findAvailable()` |
+| `book_room` | `room_id, date, start, end, booked_by, purpose` | `roomService.book()` |
+| `cancel_booking` | `booking_id` | `roomService.cancelBooking()` |
+| `register_for_event` | `event_id, student_id, name` | `eventService.register()` |
+| `cancel_registration` | `event_id, student_id` | `eventService.cancelRegistration()` |
 
 ## Your build
-- [ ] `agent/systemPrompt.ts` — identity + 4 behavior rules: never answer from memory (always call a read tool), ask on a missing required parameter, refuse when unauthorized or no tool matches, confirm before a destructive/irreversible action
-- [ ] `agent/llmClient.ts` — Gemini wrapper (`@google/generative-ai`), kept swappable
-- [ ] `agent/runAgent.ts` — the tool-use loop
-- [ ] `agent/tools.ts` — the 9 tool schemas + handlers, calling `services/*.ts` (stub these until Arko's are live)
-- [ ] `routes/agent.ts` — `POST /api/agent/chat`
-- [ ] `ChatPanel.tsx` — message list + input, calls `/api/agent/chat`
-- [ ] Tool handlers return structured errors (`{ error: "..." }`), never a raw exception into the LLM loop
+
+All files go in `server/src/`:
+
+- [ ] `agent/systemPrompt.ts` — identity + 4 behavior rules:
+      1. Never answer from memory — always call a read tool first for anything data-shaped
+      2. If a request is missing a required parameter (time, room, size) — **ask**, don't guess
+      3. If a request has no matching tool, or is unauthorized — **refuse**, state why
+      4. Before a destructive/irreversible action — restate what will happen, proceed only
+         on clear instruction
+- [ ] `agent/llmClient.ts` — Gemini wrapper (`@google/generative-ai`), kept swappable;
+      use `gemini-2.5-flash` for low latency
+- [ ] `agent/runAgent.ts` — the tool-use loop:
+      1. Send user message + tool declarations to Gemini
+      2. If response contains function calls → execute each via tool handlers → send results back
+      3. Loop until Gemini returns a text-only response (no more function calls)
+      4. Return the final text to the client
+- [ ] `agent/tools.ts` — the 9 tool schemas + handlers:
+      - Each handler calls the appropriate `server/src/services/*.ts` function
+      - Each handler returns structured data or `{ error: "..." }` — never throw raw exceptions
+- [ ] `routes/agent.ts` — `POST /api/v1/agent/chat`:
+      - Accepts `{ messages: [{ role: 'user'|'assistant', content: string }] }`
+      - Returns `{ response: string }` (or streams — stretch goal)
+      - Authenticates the request (user must be logged in)
+
+## Non-negotiable rules
+
+1. Agent tools call `server/src/services/*.ts`, never Supabase directly
+2. Tool handlers return structured errors (`{ error: "..." }`), never raw exceptions
+3. The agent must **never guess** a missing parameter — it must ask
+4. The agent must **never** silently perform a destructive action without clear authorization
 
 ## Verify before integration
-Run every query in `sample_queries/sample_queries.md` against stubbed tool responses, plus the shadow-path cases: nil input, empty result, booking conflict, unauthorized action.
+
+Run every query in `sample_queries/sample_queries.md` against stubbed (or real) tool responses:
+
+- [ ] "When is my next class?" → calls `get_schedule`, returns correct data
+- [ ] "What assignments do I have due this week?" → calls `get_assignments`, filters by date
+- [ ] "Book Room 7A02 tomorrow from 3 PM to 5 PM" → calls `book_room`, returns confirmation
+- [ ] "Register me for the Guest Lecture on Deep Learning" → calls `register_for_event`
+- [ ] Vague request ("book me any room") → agent **asks** for time/capacity/date
+- [ ] Conflict (room already booked) → agent relays the conflict, doesn't double-book
+- [ ] Unauthorized (cancel someone else's booking) → agent **refuses** with reason
+- [ ] At capacity (event full) → agent says so, doesn't register
+- [ ] "I need a room for 5 people with a projector" → calls `find_available_rooms` with filters
 
 ## Integration (last ~30 min, all 3 together)
-- [ ] Wire tool handlers to Arko's real services — the one point where your track touches his
-- [ ] Full walkthrough: edit a record via Shads' dashboard → immediately ask the agent → confirm the answer reflects the edit (the most graded behavior in the brief)
-- [ ] `README.md` — overview, tech stack, setup commands, every `.env` key, example agent questions
+
+- [ ] Wire tool handlers to Arko's real services
+- [ ] Full walkthrough with Shads: edit via dashboard → immediately ask agent → confirm
+      the answer reflects the edit
+- [ ] Verify Shads' `ChatPanel.tsx` correctly calls `POST /api/v1/agent/chat` and renders responses
+- [ ] `README.md` — overview, tech stack, setup commands, `.env` keys, example agent questions
 - [ ] Final pass against `SUBMISSION.md`
