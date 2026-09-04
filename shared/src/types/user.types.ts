@@ -16,6 +16,7 @@ export interface User {
   name: string;
   role: UserRole;
   status: UserStatus;
+  studentId?: string;
   avatarUrl?: string;
   createdAt: string;
   updatedAt: string;
