@@ -38,8 +38,8 @@ API/services are up — then it's a swap, not a rewrite.
       `SUPABASE_ANON_KEY`, `GEMINI_API_KEYS`, `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`,
       `VITE_SUPABASE_ANON_KEY` — **Arko owns this**
 - [ ] **Supabase Auth** — enable email OTP, Google OAuth, password reset in Supabase console — **Arko**
-- [ ] **`studentId`** — add `studentId?: string` to `User` + `RegisterPayload` in
-      `shared/src/types/user.types.ts` — **Shads**
+- [x] ~~**`studentId`** — add `studentId?: string` to `User` + `RegisterPayload` in
+      `shared/src/types/user.types.ts` — **Shads**~~
 - [ ] Confirm API route base = `/api/v1/*` for all endpoints — **All**
 
 ## Shared contract (do together first, ~15 min)
