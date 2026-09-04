@@ -2,13 +2,14 @@
 
 Deadline: **8:30 PM, 4 September 2026**. Full architecture and rationale: [`PLAN.md`](./PLAN.md).
 
-> **v4 changes:** monorepo is `client/` + `server/` + `shared/` (not `backend/` + `frontend/`);
+> **v4 changes (repo-aligned):** monorepo is `client/` + `server/` + `shared/` (npm workspaces);
 > styling = vanilla CSS Ocean Glass tokens (not Tailwind/shadcn); auth = Supabase Auth
-> (not custom JWT); routes = `/admin/*` + `/app/*` (not `/dashboard/*`); 18 pages total;
+> (with custom JWT fallback); routes = `/admin/*` + `/app/*` (18 pages total);
 > Shads owns all UI including chat; approval flow for room bookings; notifications system.
+> When you finish a checklist item below, check it **and** strike it through: `- [x] ~~item~~`.
 
-Goal: all three work **in parallel with zero blocking dependencies**. Agree the contract
-once, then each own a track nobody else touches until the final integration step.
+Goal: all three of you work **in parallel with zero blocking dependencies**. Agree the
+contract once, then each own a track nobody else touches until the final integration step.
 
 ```
         SHARED CONTRACT (15 min, all 3 together)
@@ -34,7 +35,7 @@ API/services are up — then it's a swap, not a rewrite.
 
 - [ ] **`.env.example`** — resolve merge conflict markers into one merged file: `PORT=5000`,
       `NODE_ENV`, `CLIENT_URL`, `JWT_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
-      `SUPABASE_ANON_KEY`, `GEMINI_API_KEY`, `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`,
+      `SUPABASE_ANON_KEY`, `GEMINI_API_KEYS`, `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`,
       `VITE_SUPABASE_ANON_KEY` — **Arko owns this**
 - [ ] **Supabase Auth** — enable email OTP, Google OAuth, password reset in Supabase console — **Arko**
 - [ ] **`studentId`** — add `studentId?: string` to `User` + `RegisterPayload` in
@@ -43,14 +44,21 @@ API/services are up — then it's a swap, not a rewrite.
 
 ## Shared contract (do together first, ~15 min)
 
-- [ ] Confirm DB schema (7 tables + notifications): `schedules`, `rooms`, `bookings` (with
-      `status`), `events`, `event_registrations`, `announcements`, `assignments`, `notifications`
-- [ ] Confirm REST endpoint list under `/api/v1/`: all 5 systems CRUD + bookings + registrations
-      + requests (approve/reject) + notifications + agent
-- [ ] Confirm agent tool contract: `get_schedule`, `get_assignments`, `get_events`,
+- [x] ~~Confirm DB schema (7 tables): `schedules`, `rooms`, `bookings`, `events`,
+      `event_registrations`, `announcements`, `assignments` — see `schema/schema.md`~~ — drafted and applied
+- [ ] Add `notifications` table to schema (`id, user_id, type, title, body, link, read, created_at`)
+      and `status`/`requester_id` to `bookings`
+- [ ] **Blocking — do this before writing real (non-mocked) service/UI/tool code:**
+      add `Schedule`/`Room`/`Booking`/`Event`/`EventRegistration`/`Announcement`/`Assignment`/`Notification`
+      types to `shared/src/types/` (e.g. `campus.types.ts`, exported from `shared/src/types/index.ts`).
+      `server/` and `client/` both import domain types from `@shared/types`.
+- [ ] Confirm REST endpoint list + request/response JSON shape per system under `/api/v1/*`
+- [x] ~~Confirm agent tool contract: `get_schedule`, `get_assignments`, `get_events`,
       `get_announcements`, `find_available_rooms`, `book_room`, `cancel_booking`,
-      `register_for_event`, `cancel_registration`
-- [ ] `.env.example` with final key names (no real keys)
+      `register_for_event`, `cancel_registration`~~
+- [x] ~~One person creates the Supabase project, shares `SUPABASE_URL` +
+      `SUPABASE_SERVICE_ROLE_KEY`~~ — verified live
+- [x] ~~Commit filled-out `.env.example` reflecting final key names including `GEMINI_API_KEYS`~~
 
 ---
 
@@ -59,23 +67,29 @@ API/services are up — then it's a swap, not a rewrite.
 Owns: Supabase schema, seed script, `server/src/services/*.ts`, REST API, auth setup.
 
 - [ ] **Supabase Auth setup** — enable email OTP, Google OAuth provider, password reset;
-      wire `server/src/middlewares/auth.ts` to validate Supabase JWT sessions
-- [ ] `.env.example` merge conflict resolution (see pre-flight above)
-- [ ] `schema.sql` — 7 tables + FKs + `notifications` table: `id, user_id, type, title, body, link, read, created_at`
-- [ ] `db/seed.ts` — load `data/*.json`, split embedded arrays into join tables, upsert on `id`
-- [ ] `services/scheduleService.ts`
-- [ ] `services/roomService.ts` (+ `findAvailable`, `book` with pending status, `cancelBooking`)
-- [ ] `services/eventService.ts` (+ `register`, `cancelRegistration`, capacity check)
-- [ ] `services/announcementService.ts`
-- [ ] `services/assignmentService.ts`
-- [ ] `services/requestService.ts` — **NEW**: get pending, approve (→ confirmed + notification),
+      wire `server/src/middlewares/auth.ts` to validate Supabase JWT sessions (keep custom JWT fallback)
+- [ ] `.env.example` merge resolution (ensure all keys present, no conflict markers)
+- [x] ~~`server/src/db/schema.sql` — 7 tables + foreign keys in Supabase~~ — done, applied, verified live
+- [ ] `schema.sql` update — add `notifications` table + `bookings.status`/`requester_id`
+- [ ] *(depends on Shared contract's `shared/src/types/` item)* `server/src/db/seed.ts` — load `data/*.json` into Supabase, transforming embedded
+      `bookings`/`registrations` arrays into the join tables; safe to re-run (upsert on `id`)
+- [ ] `server/src/services/scheduleService.ts` — full CRUD
+- [ ] `server/src/services/roomService.ts` (+ `findAvailable`, `book` with pending status & overlap check, `cancelBooking`)
+- [ ] `server/src/services/eventService.ts` (+ `register`, `cancelRegistration`, capacity check)
+- [ ] `server/src/services/announcementService.ts` — full CRUD
+- [ ] `server/src/services/assignmentService.ts` — full CRUD
+- [ ] `server/src/services/requestService.ts` — **NEW**: get pending, approve (→ confirmed + notification),
       reject (→ rejected + notification), conflict re-check at approve time
-- [ ] `services/notificationService.ts` — **NEW**: create, getByUser, markRead, markAllRead
-- [ ] All routes under `/api/v1/*` — thin controllers over services, full CRUD on all 5 systems
-- [ ] `POST /api/v1/requests/:id/approve`, `POST /api/v1/requests/:id/reject`
-- [ ] `GET /api/v1/notifications`, `PUT /api/v1/notifications/:id/read`
-- [ ] Booking overlap check + event capacity check live in the service layer
-- [ ] Manual test every endpoint against seeded data
+- [ ] `server/src/services/notificationService.ts` — **NEW**: create, getByUser, markRead, markAllRead
+- [x] ~~Express app scaffold: `app.ts`/`server.ts`, CORS, JSON body parsing, error middleware~~ — already exists from the workspace scaffold, reuse as-is
+- [ ] `server/src/routes/v1/schedule.routes.ts`, `room.routes.ts`, `event.routes.ts`,
+      `announcement.routes.ts`, `assignment.routes.ts` + matching `*.controller.ts` —
+      thin routers + controllers over services, full CRUD on all 5, mounted under `/api/v1`
+- [ ] `server/src/routes/v1/request.routes.ts` + `request.controller.ts` — `POST /api/v1/requests/:id/approve`, `POST /api/v1/requests/:id/reject`
+- [ ] `server/src/routes/v1/notification.routes.ts` + `notification.controller.ts` — `GET /api/v1/notifications`, `PUT /api/v1/notifications/:id/read`
+- [ ] Booking overlap check + event capacity check live in the service layer, not the
+      controllers — that's what the agent tools call into too
+- [ ] Manual test every endpoint (curl/Postman) against seeded data before calling it done
 
 ## Shads — All Frontend UI
 
@@ -117,14 +131,19 @@ Never call Supabase from the frontend for data operations. Everything goes throu
 Owns: tool calling, LLM integration (Google Gemini, native function calling), system prompt.
 **Chat UI is now Shads' responsibility** — Hrittika provides the backend endpoint.
 
-- [ ] `agent/systemPrompt.ts` — identity + 4 behavior rules: always read via a tool,
-      ask on missing parameter, refuse when unauthorized, confirm before destructive action
-- [ ] `agent/llmClient.ts` — Gemini wrapper (`@google/generative-ai`), kept swappable
-- [ ] `agent/runAgent.ts` — the tool-use loop
-- [ ] `agent/tools.ts` — the 9 tool schemas + handlers, calling `server/src/services/*.ts`
-- [ ] `server/src/routes/agent.ts` — `POST /api/v1/agent/chat` (note: `/api/v1/`, not `/api/`)
+- [ ] `server/src/agent/systemPrompt.ts` — identity + 4 behavior rules: always read via a tool
+      (never answer from memory), ask when a request is missing a required parameter,
+      refuse when unauthorized or when no tool matches, confirm before a
+      destructive/irreversible action
+- [x] ~~`server/src/agent/llmClient.ts` — Google GenAI SDK (`@google/genai`) wrapper with multi-key rotation on 429 rate limits, unit tested~~
+- [ ] `server/src/agent/runAgent.ts` — the tool-use loop
+- [ ] *(depends on Shared contract's `shared/src/types/` item)* `server/src/agent/tools.ts` — the 9 tool schemas + handlers, calling `server/src/services/*.ts`
+- [ ] `server/src/routes/v1/agent.routes.ts` + `agent.controller.ts` — `POST /api/v1/agent/chat`
+- [ ] Wire tool handlers to Arko's real services once live — the one integration point
+      with Arko's track
 - [ ] Tool handlers return structured errors (`{ error: "..." }`), never raw exceptions
-- [ ] Test every query in `sample_queries/sample_queries.md` + shadow-path cases
+- [ ] Test every query in `sample_queries/sample_queries.md`, plus the shadow-path cases:
+      nil input, empty result, booking conflict, unauthorized action
 
 ---
 

@@ -2,23 +2,23 @@
 
 Deadline: **8:30 PM, 4 September** (today). Plan is time-boxed to that.
 
-> **v4 changes from v3:** directory structure now `client/` + `server/` + `shared/` (not
-> `backend/` + `frontend/`); styling is vanilla CSS with "Ocean Glass" design tokens (no
-> Tailwind, no shadcn — the repo went glassmorphic); auth switches to Supabase Auth
-> (OTP + Google OAuth + password reset) over the broken custom JWT; routes are
-> `/admin/*` + `/app/*` (not `/dashboard/*`); 18 total pages; Shads owns chat UI;
-> approval flow for room bookings; notifications system.
+> **v4 changes (repo-aligned):** monorepo structure is `client/` + `server/` + `shared/`
+> (npm workspaces); styling is vanilla CSS with "Ocean Glass" design tokens (no Tailwind,
+> no shadcn — translucent depth layers with `backdrop-filter: blur(40px)`); auth switches
+> to Supabase Auth (OTP + Google OAuth + password reset) over the custom JWT (retained as
+> fallback); routes are `/admin/*` + `/app/*` (18 total pages); Shads owns all UI including
+> chat; room booking approval flow; notifications system. `ARCHITECTURE.md` is the source of truth.
 
 ## Stack
 
 | Layer | Choice | Why |
 |---|---|---|
 | Backend | Express + TypeScript (monorepo: `server/`) | Already scaffolded. Controller→service pattern, Zod validators, `/api/v1` routes. |
-| Frontend | React (Vite) + TypeScript + vanilla CSS (monorepo: `client/`) | Ocean Glass design system — translucent depth layers with `backdrop-filter: blur(40px)`. No Tailwind/shadcn — the repo already has glassmorphic CSS tokens. |
-| Shared | TypeScript types + constants (monorepo: `shared/`) | Single source for types, Zod schemas, route constants — both sides import from `@shared/types`. |
+| Frontend | React (Vite) + TypeScript + vanilla CSS (monorepo: `client/`) | Ocean Glass design system — translucent depth layers with `backdrop-filter: blur(40px)`. Hand-rolled accessible components and glassmorphic CSS tokens. |
+| Shared | TypeScript types + constants (monorepo: `shared/`) | Single source for domain types, Zod schemas, route constants — both sides import from `@shared/types`. |
 | Database | Supabase (Postgres) | Real persistent backend, free tier, accessed **only** from Express via service-role key. Frontend uses Supabase client for auth only (OTP/Google/reset). |
-| Auth | Supabase Auth | Native OTP signup, Google OAuth, password reset, session management. Replaces the custom JWT layer (kept dormant as fallback). |
-| LLM | **Google Gemini** (`gemini-2.5-flash`), native function calling | Gemini's function calling is mature and fast. Isolated behind `agent/llmClient.ts`. |
+| Auth | Supabase Auth | Native OTP signup, Google OAuth, password reset, session management, demo-creds card. Custom JWT kept dormant as fallback. |
+| LLM | **Google Gemini** (`@google/genai`, `gemini-2.5-flash`), native function calling | Gemini function calling is mature and fast; API key rotation across `GEMINI_API_KEYS` on rate limit. Isolated behind `agent/llmClient.ts`. |
 
 ## Non-negotiable architecture rule
 
@@ -57,6 +57,10 @@ Seed script reads the five JSON files in `data/`, transforms `bookings`/`registr
 
 ## File structure (repo reality)
 
+See `ARCHITECTURE.md`'s [Target directory layout](./ARCHITECTURE.md#target-directory-layout)
+for the authoritative, up-to-date version (it also marks what already exists from the auth
+scaffold vs. what's new). Same shape, real paths:
+
 ```
 client/src/
   index.css                 # Ocean Glass design system tokens (dark/light)
@@ -83,20 +87,19 @@ client/src/
   config/                   # env.config.ts
 
 server/src/
-  app.ts                    # Express app
-  config/                   # DB config, env
-  controllers/              # Thin controllers
+  app.ts                    # Express app, mounts routes
+  config/                   # DB config, env (GEMINI_API_KEYS rotation, Supabase)
+  controllers/              # Thin controllers (schedule, room, event, announcement, assignment, agent, request, notification)
   services/                 # One per system — the ONLY layer that talks to Supabase
-  routes/                   # /api/v1/* routes
-  middlewares/              # Auth, authorize (role guard), error handler
-  validators/              # Zod schemas
-  models/                  # Supabase queries
-  agent/                    # tools.ts, systemPrompt.ts, llmClient.ts, runAgent.ts
+  routes/v1/                # /api/v1/* routes
+  middlewares/              # Auth (Supabase + fallback JWT), role guard, error handler
+  validators/               # Zod schemas
+  agent/                    # tools.ts, systemPrompt.ts, llmClient.ts (@google/genai), runAgent.ts
 
 shared/src/
   types/                    # User, Schedule, Room, Event, Announcement,
                            #   Assignment, Notification, Booking, Auth types
-  constants/               # API_ROUTES, roles, httpStatus
+  constants/                # API_ROUTES, roles, httpStatus
 ```
 
 ## 18-route architecture
@@ -126,7 +129,7 @@ shared/src/
 ## Agent tools (scope: read + the actions the brief names)
 
 Read tools: `get_schedule`, `get_assignments`, `get_events`, `get_announcements`.
-Action tools: `find_available_rooms(date, start, end, min_capacity?, equipment?)`, `book_room(room_id, date, start, end, booked_by, purpose)`, `cancel_booking(booking_id)`, `register_for_event(event_id, student_id, name)`, `cancel_registration(event_id, student_id)`.
+Action tools: `find_available_rooms(date, start_time, end_time, min_capacity?, equipment?)`, `book_room(room_id, date, start_time, end_time, booked_by, purpose)`, `cancel_booking(booking_id, booked_by)`, `register_for_event(event_id, student_id, name)`, `cancel_registration(event_id, student_id)`. Param names match the Postgres columns 1:1 — see `ARCHITECTURE.md`'s [Agent tool contract](./ARCHITECTURE.md#agent-tool-contract).
 
 System prompt rules (map to the 4 agent sub-scores):
 1. Never answer from memory — always call a read tool first for anything data-shaped.
@@ -150,7 +153,7 @@ Within *this* client, after any add/edit/delete/book/register, the UI must refle
 
 | Phase | Time | Owner | Output |
 |---|---|---|---|
-| 0. Pre-flight fixes | 15 min | Arko | `.env.example` merge conflict, Supabase Auth setup |
+| 0. Setup & Pre-flight | 15 min | All | Workspace scaffold landed; `.env.example` unified, Supabase Auth setup, domain types |
 | 1. Design system | 45 min | Shads | Ocean Glass CSS tokens, updated common components |
 | 2. Routing + layouts | 30 min | Shads | AdminLayout, StudentLayout, 18 placeholder pages |
 | 3. Auth pages | 40 min | Shads | Login, Signup, Forgot (Supabase Auth) |
@@ -158,7 +161,7 @@ Within *this* client, after any add/edit/delete/book/register, the UI must refle
 | 5. Admin CRUD pages | 60 min | Shads | 5 CRUD tables + Overview + Requests |
 | 6. Student pages | 50 min | Shads | Home, Schedule, Events, Announcements, Assignments, Activity |
 | 7. Chat UI | 35 min | Shads | ChatPanel + agent integration + quick-prompt chips |
-| 8. Agent backend | 60 min | Hrittika | tools, systemPrompt, runAgent, LLM client |
+| 8. Agent backend | 60 min | Hrittika | tools, systemPrompt, runAgent, LLM client (`@google/genai` key rotation) |
 | 9. Notifications + polish | 25 min | Shads | NotificationBell, animations, responsive pass |
 | 10. Integration + test | 30 min | All | Real API, sample_queries walkthrough, demo-creds flow |
 
@@ -166,7 +169,7 @@ Total: ~7h, parallelized across 3 people ≈ 3.5h wall clock.
 
 ## Pre-flight fixes (blocking — before any page work)
 
-1. **`.env.example`** — merge conflict markers must be resolved into one file: `PORT=5000`, `NODE_ENV`, `CLIENT_URL`, `JWT_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `GEMINI_API_KEY`, `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+1. **`.env.example`** — merge conflict markers must be resolved into one file: `PORT=5000`, `NODE_ENV`, `CLIENT_URL`, `JWT_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `GEMINI_API_KEYS`, `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 2. **Supabase Auth** — bypass custom JWT, wire OTP + Google + reset
 3. **`studentId`** — add to `User` + `RegisterPayload` in `shared/src/types/`
 4. **5-system CRUD endpoints** under `/api/v1/*`
@@ -186,8 +189,8 @@ Total: ~7h, parallelized across 3 people ≈ 3.5h wall clock.
 
 - [ ] One-paragraph overview
 - [ ] Tech stack (Express/TS, React/Vite/TS, Supabase, Gemini)
-- [ ] Exact setup commands
-- [ ] Every `.env` key explained, no real keys committed
+- [ ] Exact setup commands (`npm install` at the repo root installs all workspaces, `npm run dev` runs `server`+`client` concurrently)
+- [ ] Every `.env` key explained (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEYS`, `PORT`), no real keys committed
 - [ ] Example questions to ask the agent
 
 ## Hedge flags

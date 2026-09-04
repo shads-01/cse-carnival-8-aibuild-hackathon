@@ -2,24 +2,27 @@
 
 Deadline: **8:30 PM, 4 September**. Full detail: [`tasks.md`](./tasks.md) · [`PLAN.md`](./PLAN.md) · [`ARCHITECTURE.md`](./ARCHITECTURE.md)
 
-> **v4 changes:** Chat UI is now Shads' responsibility — you provide only the backend
-> endpoint. Agent route = `POST /api/v1/agent/chat` (note `/api/v1/`, not `/api/`).
+> **v4 changes:** Chat UI is now Shads' responsibility — you provide the backend
+> endpoint and agent logic. Agent route = `POST /api/v1/agent/chat` (note `/api/v1/`).
 > Agent code lives in `server/src/agent/`. All services are in `server/src/services/`.
+> When you finish a checklist item below, check it **and** strike it through: `- [x] ~~item~~`.
 
-You own: tool calling, LLM integration (**Google Gemini**, native function calling),
-system prompt, tool-use loop. Build tool handlers against the agreed service signatures,
+You own: tool calling, LLM integration (**Google Gemini**, native function calling via `@google/genai`),
+system prompt, tool-use loop, and the agent controller/route. Build tool handlers against the agreed service signatures,
 stubbing data calls until Arko's services are live.
 
 **You do NOT own the Chat UI anymore** — Shads is building `ChatPanel.tsx` and wiring it
 to your `POST /api/v1/agent/chat` endpoint. Your deliverable is the endpoint + the agent
 logic behind it.
 
-## Setup (with Arko + Shads, ~15 min)
+## Initial setup — my part (with Arko + Shads, ~15 min)
 
 - [ ] Confirm agent tool contract: 9 tools (see below)
-- [ ] Get `GEMINI_API_KEY` from Google AI Studio
-- [ ] Get `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` from Arko
-- [ ] Confirm route base = `/api/v1/agent/chat` (not `/api/agent/chat`)
+- [x] ~~Get `GEMINI_API_KEYS` from Google AI Studio (comma-separated list for rate-limit rotation)~~
+- [x] ~~Get `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` from Arko (backend-only — never in frontend code)~~ — connection verified live
+- [x] ~~Draft the initial `server/src/db/schema.sql` (7 tables + FKs)~~ — applied to Supabase
+- [x] ~~Fill out `.env.example` with final key names including `GEMINI_API_KEYS`~~
+- [ ] Confirm route base = `/api/v1/agent/chat`
 - [ ] Confirm the non-negotiable: agent tools call `server/src/services/*.ts`, never Supabase directly
 
 ## Agent tool contract (confirm with Arko)
@@ -30,9 +33,9 @@ logic behind it.
 | `get_assignments` | `course?`, `status?` | `assignmentService.getAll(filters)` |
 | `get_events` | `status?`, `date?` | `eventService.getAll(filters)` |
 | `get_announcements` | `priority?` | `announcementService.getAll(filters)` |
-| `find_available_rooms` | `date, start, end, min_capacity?, equipment?` | `roomService.findAvailable()` |
-| `book_room` | `room_id, date, start, end, booked_by, purpose` | `roomService.book()` |
-| `cancel_booking` | `booking_id` | `roomService.cancelBooking()` |
+| `find_available_rooms` | `date, start_time, end_time, min_capacity?, equipment?` | `roomService.findAvailable()` |
+| `book_room` | `room_id, date, start_time, end_time, booked_by, purpose` | `roomService.book()` |
+| `cancel_booking` | `booking_id, booked_by` | `roomService.cancelBooking()` |
 | `register_for_event` | `event_id, student_id, name` | `eventService.register()` |
 | `cancel_registration` | `event_id, student_id` | `eventService.cancelRegistration()` |
 
@@ -40,25 +43,24 @@ logic behind it.
 
 All files go in `server/src/`:
 
-- [ ] `agent/systemPrompt.ts` — identity + 4 behavior rules:
+- [ ] `server/src/agent/systemPrompt.ts` — identity + 4 behavior rules:
       1. Never answer from memory — always call a read tool first for anything data-shaped
       2. If a request is missing a required parameter (time, room, size) — **ask**, don't guess
       3. If a request has no matching tool, or is unauthorized — **refuse**, state why
       4. Before a destructive/irreversible action — restate what will happen, proceed only
          on clear instruction
-- [ ] `agent/llmClient.ts` — Gemini wrapper (`@google/generative-ai`), kept swappable;
-      use `gemini-2.5-flash` for low latency
-- [ ] `agent/runAgent.ts` — the tool-use loop:
+- [x] ~~`server/src/agent/llmClient.ts` — Google GenAI SDK (`@google/genai`) wrapper with multi-key rotation on 429 rate limits, unit tested~~
+- [ ] `server/src/agent/runAgent.ts` — the tool-use loop:
       1. Send user message + tool declarations to Gemini
       2. If response contains function calls → execute each via tool handlers → send results back
       3. Loop until Gemini returns a text-only response (no more function calls)
       4. Return the final text to the client
-- [ ] `agent/tools.ts` — the 9 tool schemas + handlers:
+- [ ] `server/src/agent/tools.ts` — the 9 tool schemas + handlers:
       - Each handler calls the appropriate `server/src/services/*.ts` function
       - Each handler returns structured data or `{ error: "..." }` — never throw raw exceptions
-- [ ] `routes/agent.ts` — `POST /api/v1/agent/chat`:
+- [ ] `server/src/routes/v1/agent.routes.ts` + `agent.controller.ts` — `POST /api/v1/agent/chat`:
       - Accepts `{ messages: [{ role: 'user'|'assistant', content: string }] }`
-      - Returns `{ response: string }` (or streams — stretch goal)
+      - Returns `{ response: string }`
       - Authenticates the request (user must be logged in)
 
 ## Non-negotiable rules

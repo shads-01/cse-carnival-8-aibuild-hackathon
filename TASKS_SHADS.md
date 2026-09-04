@@ -5,6 +5,7 @@ Deadline: **8:30 PM, 4 September**. Full detail: [`tasks.md`](./tasks.md) · [`P
 > **Scope change from v3:** You now own ALL UI — 18 pages, chat panel, auth flows, design
 > system, notifications. Chat UI was previously Hrittika's; she now only provides the
 > backend endpoint. Styling = vanilla CSS "Ocean Glass" tokens (not Tailwind/shadcn).
+> When you finish a checklist item below, check it **and** strike it through: `- [x] ~~item~~`.
 
 You own: the React frontend for all 18 routes, the "Ocean Glass" design system, auth UI,
 chat UI, theme toggle, notifications. Build against mocked JSON matching the agreed
